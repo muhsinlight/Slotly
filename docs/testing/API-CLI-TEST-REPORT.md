@@ -71,3 +71,5 @@ $bodyPath = Join-Path $env:TEMP 'slotly-request.json'
 curl.exe -i -X POST -H 'Content-Type: application/json' --data-binary "@$bodyPath" http://localhost:8081/api/auth/register
 Remove-Item -LiteralPath $bodyPath
 ```
+
+> Bu tarihli manuel kontrol kaydı güncel CI sonucunun yerine geçmez. Tekrarlanabilir kontroller için [geliştirme rehberine](../DEVELOPMENT.md) bakın.
