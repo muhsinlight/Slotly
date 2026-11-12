@@ -41,9 +41,14 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.TreeMap;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 @Service
 public class BookingService {
+    @PersistenceContext
+    private EntityManager entityManager;
     private static final Duration WAITLIST_OFFER_LIFETIME = Duration.ofMinutes(30);
     private static final Duration MAX_AVAILABILITY_RANGE = Duration.ofDays(31);
 
@@ -296,6 +301,11 @@ public class BookingService {
         if (!isValidServiceSlot(place.getId(), offering, startsAt, endsAt)) {
             throw bad("Appointment is outside business hours");
         }
+        if (appointments.existsByCustomerIdAndOfferingIdAndStartsAtAndStatus(
+            customerId, offering.getId(), startsAt, AppointmentStatus.CONFIRMED
+        )) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have this appointment");
+        }
         if (!hasCapacity(place, startsAt, endsAt)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Place has no capacity for this time");
         }
@@ -321,6 +331,7 @@ public class BookingService {
             .orElseThrow(() -> notFound("Place not found"));
         appointment = appointments.findById(appointmentId)
             .orElseThrow(() -> notFound("Appointment not found"));
+        entityManager.refresh(appointment);
 
         boolean isCustomer = appointment.getCustomer().getId().equals(callerId);
         boolean isOwner = place.getOwner().getId().equals(callerId);
@@ -397,6 +408,7 @@ public class BookingService {
         WaitlistEntry entry = requireWaitlistEntry(customerId, entryId);
         Place place = places.findLockedById(entry.getPlace().getId()).orElseThrow(() -> notFound("Place not found"));
         entry = requireWaitlistEntry(customerId, entryId);
+        entityManager.refresh(entry);
         if (entry.getStatus() != WaitlistStatus.OFFERED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "There is no active offer for this entry");
         }
@@ -428,6 +440,7 @@ public class BookingService {
         WaitlistEntry entry = requireWaitlistEntry(customerId, entryId);
         Place place = places.findLockedById(entry.getPlace().getId()).orElseThrow(() -> notFound("Place not found"));
         entry = requireWaitlistEntry(customerId, entryId);
+        entityManager.refresh(entry);
         if (entry.getStatus() != WaitlistStatus.OFFERED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "There is no active offer for this entry");
         }
@@ -441,6 +454,7 @@ public class BookingService {
         WaitlistEntry entry = requireWaitlistEntry(customerId, entryId);
         Place place = places.findLockedById(entry.getPlace().getId()).orElseThrow(() -> notFound("Place not found"));
         entry = requireWaitlistEntry(customerId, entryId);
+        entityManager.refresh(entry);
         boolean hadOffer = entry.getStatus() == WaitlistStatus.OFFERED;
         if (entry.getStatus() != WaitlistStatus.WAITING && !hadOffer) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This waitlist entry is already closed");
@@ -465,6 +479,9 @@ public class BookingService {
                 continue;
             }
             WaitlistEntry entry = waitlist.findById(candidate.getId()).orElse(null);
+            if (entry != null) {
+                entityManager.refresh(entry);
+            }
             if (entry == null || entry.getStatus() != WaitlistStatus.OFFERED
                 || entry.getOfferExpiresAt().isAfter(now)) {
                 continue;
@@ -508,13 +525,27 @@ public class BookingService {
     }
 
     private boolean hasCapacity(Place place, Instant startsAt, Instant endsAt) {
-        long activeAppointments = appointments.countByPlaceIdAndStatusAndStartsAtLessThanAndEndsAtGreaterThan(
+        List<Appointment> overlapping = appointments.findByPlaceIdAndStatusAndStartsAtLessThanAndEndsAtGreaterThan(
             place.getId(),
             AppointmentStatus.CONFIRMED,
             endsAt,
             startsAt
         );
-        return activeAppointments < place.getCapacity();
+        TreeMap<Instant, Integer> changes = new TreeMap<>();
+        for (Appointment appointment : overlapping) {
+            Instant start = appointment.getStartsAt().isBefore(startsAt) ? startsAt : appointment.getStartsAt();
+            Instant end = appointment.getEndsAt().isAfter(endsAt) ? endsAt : appointment.getEndsAt();
+            changes.merge(start, 1, Integer::sum);
+            changes.merge(end, -1, Integer::sum);
+        }
+        int active = 0;
+        for (int change : changes.values()) {
+            active += change;
+            if (active >= place.getCapacity()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean isValidServiceSlot(UUID placeId, Offering offering, Instant startsAt, Instant endsAt) {

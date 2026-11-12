@@ -8,9 +8,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 try {
-    $env:DATABASE_URL = 'jdbc:postgresql://localhost:5433/slotly_test'
-    $env:DATABASE_USERNAME = 'slotly'
-    $env:DATABASE_PASSWORD = 'slotly'
+    $env:TEST_DATABASE_URL = 'jdbc:postgresql://localhost:5433/slotly_test'
+    $env:TEST_DATABASE_USERNAME = 'slotly'
+    $env:TEST_DATABASE_PASSWORD = 'slotly'
     & (Join-Path $PSScriptRoot 'mvnw.cmd') --batch-mode verify
     if ($LASTEXITCODE -ne 0) {
         throw "Maven verification failed with exit code $LASTEXITCODE."
