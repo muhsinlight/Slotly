@@ -82,10 +82,13 @@ test('a competing booking shows a useful error and the customer can join and acc
   await page.getByRole('button', { name: 'Bekleme listesine katıl', exact: true }).click()
   await expect(page).toHaveURL(/\/waitlist/)
   await expect(page.getByRole('article')).toContainText('Sırada')
+  await page.getByRole('link', { name: 'Mekânlar', exact: true }).click()
   const cancelled = await request.delete(api + '/appointments/' + appointment.id, {
     headers: { Authorization: 'Bearer ' + data.other.token },
   })
   expect(cancelled.status()).toBe(204)
+  await expect(page.getByRole('status')).toContainText('yeni randevu teklifin var', { timeout: 35_000 })
+  await page.getByRole('link', { name: 'Teklifi incele →' }).click()
   await expect(page.getByRole('button', { name: 'Kabul et', exact: true })).toBeEnabled({ timeout: 35_000 })
   await page.getByRole('button', { name: 'Kabul et', exact: true }).click()
   await page.getByRole('link', { name: 'Randevuyu gör →' }).click()

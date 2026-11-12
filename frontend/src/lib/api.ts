@@ -14,11 +14,12 @@ export class ApiError extends Error {
 }
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const accessToken = token.value
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(token.value ? { Authorization: `Bearer ${token.value}` } : {}),
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...options.headers,
     },
   }).catch((cause: unknown) => {
@@ -28,7 +29,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   const body = response.status === 204 ? null : await response.json().catch(() => null)
 
   if (!response.ok) {
-    if (response.status === 401 && token.value) {
+    if (response.status === 401 && accessToken && token.value === accessToken) {
       clearAuth()
       window.dispatchEvent(new CustomEvent('slotly:unauthorized'))
     }
