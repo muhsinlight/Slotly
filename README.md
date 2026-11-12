@@ -237,6 +237,18 @@ cd frontend
 npm run build
 ```
 
+Mobil müşteri akışının tarayıcı testi (gerçek API, ayrı ve geçici PostgreSQL):
+
+```powershell
+cd frontend
+npm ci
+npx playwright install chromium
+cd ..
+powershell -NoProfile -ExecutionPolicy Bypass -File .\test-browser.ps1
+```
+
+Tarayıcı ortamı veritabanı için 5434, API için 8081 ve arayüz için 4173 portlarını kullanır. Testler seçimle girişe dönüşü, rezervasyon/iptali, saat çakışmasını, bekleme listesini ve 401 sonrası dönüşü kapsar. CI aynı akışları PostgreSQL servisiyle çalıştırır; başarısızlık raporunu artifact olarak saklar.
+
 `.github/workflows/ci.yml`, tüm dallara push ve `main` hedefli pull requestlerde backend doğrulamasını temiz PostgreSQL servisiyle, frontend tür kontrolü ve üretim derlemesini çalıştırır. Görev dalları yalnız kontroller geçtikten sonra `main` ile birleştirilir.
 
 ### Yedek ve geri yükleme

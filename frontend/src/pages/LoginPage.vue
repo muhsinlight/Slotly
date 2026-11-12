@@ -2,8 +2,9 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AuthPageLayout from '../components/AuthPageLayout.vue'
-import { saveAuth } from '../composables/auth'
+import { role, saveAuth } from '../composables/auth'
 import { request } from '../lib/api'
+import { safeReturnTo } from '../lib/navigation'
 
 const router = useRouter()
 const username = ref('')
@@ -12,6 +13,7 @@ const busy = ref(false)
 const errorMessage = ref('')
 
 async function login(): Promise<void> {
+  if (busy.value) return
   busy.value = true
   errorMessage.value = ''
 
@@ -22,12 +24,7 @@ async function login(): Promise<void> {
     })
 
     saveAuth(response.accessToken)
-    const requestedPath = router.currentRoute.value.query.returnTo
-    const returnTo = typeof requestedPath === 'string'
-      && requestedPath.startsWith('/')
-      && !requestedPath.startsWith('//')
-      ? requestedPath
-      : '/'
+    const returnTo = safeReturnTo(router.currentRoute.value.query.returnTo, role.value === 'OWNER' ? '/owner' : '/')
     await router.push(returnTo)
   } catch (error) {
     errorMessage.value = (error as Error).message
@@ -79,7 +76,7 @@ async function login(): Promise<void> {
 
     <template #switch>
       <span>Slotly’de yeni misin?</span>
-      <RouterLink to="/register">Hesap oluştur</RouterLink>
+      <RouterLink :to="{ path: '/register', query: { returnTo: safeReturnTo(router.currentRoute.value.query.returnTo) } }">Hesap oluştur</RouterLink>
     </template>
   </AuthPageLayout>
 </template>

@@ -1,18 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { token } from '../composables/auth'
-import { request } from '../lib/api'
-
-type Appointment = {
-  id: string
-  placeId: string
-  placeName: string
-  offeringName: string
-  startsAt: string
-  endsAt: string
-  status: 'CONFIRMED' | 'CANCELLED' | string
-}
+import AppHeader from '../components/AppHeader.vue'
+import { listAppointments, cancelAppointment as cancelRequest, type Appointment } from '../lib/bookings'
 
 const appointments = ref<Appointment[]>([])
 const loading = ref(true)
@@ -32,7 +22,7 @@ async function loadAppointments(): Promise<void> {
   loading.value = true
   error.value = ''
   try {
-    appointments.value = await request<Appointment[]>('/appointments/me')
+    appointments.value = await listAppointments()
   } catch (cause) {
     error.value = (cause as Error).message
   } finally {
@@ -41,13 +31,14 @@ async function loadAppointments(): Promise<void> {
 }
 
 async function cancelAppointment(appointment: Appointment): Promise<void> {
+  if (busyId.value) return
   const date = new Date(appointment.startsAt).toLocaleString('tr-TR', { dateStyle: 'long', timeStyle: 'short' })
   if (!window.confirm(`${appointment.placeName} · ${appointment.offeringName}\n${date}\n\nBu randevuyu iptal etmek istiyor musun?`)) return
 
   busyId.value = appointment.id
   error.value = ''
   try {
-    await request(`/appointments/${appointment.id}`, { method: 'DELETE' })
+    await cancelRequest(appointment.id)
     await loadAppointments()
   } catch (cause) {
     error.value = (cause as Error).message
@@ -61,11 +52,7 @@ onMounted(loadAppointments)
 
 <template>
   <div class="app-shell">
-    <header class="topbar">
-      <RouterLink class="brand" to="/"><span class="brand-mark">S</span>slotly</RouterLink>
-      <nav><RouterLink to="/">Mekânlar</RouterLink><a href="#appointments">Randevularım</a></nav>
-      <RouterLink v-if="!token" class="button quiet" to="/login">Giriş yap</RouterLink>
-    </header>
+    <AppHeader />
     <main id="appointments" class="section appointments-page">
       <div class="section-heading">
         <div><span class="eyebrow">TAKVİMİN</span><h1>Randevularım</h1></div>

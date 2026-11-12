@@ -28,6 +28,8 @@
 **/dist/
 **/build/
 **/coverage/
+**/playwright-report/
+**/test-results/
 **/.vite/
 
 # Logs and local runtime data

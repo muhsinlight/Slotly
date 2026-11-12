@@ -667,6 +667,7 @@ a {
 }
 .waitlist-join {
   display: flex;
+    flex-wrap: wrap;
   align-items: end;
   gap: 12px;
   width: 100%;
@@ -1015,6 +1016,14 @@ footer small {
   .app-shell {
     padding: 0 26px;
   }
+  .waitlist-join p {
+    flex-basis: 100%;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .discovery-list {
+    max-width: 900px;
+  }
   .topbar {
     height: 70px;
     gap: 24px;
@@ -1064,6 +1073,20 @@ footer small {
   }
 }
 @media(max-width:580px) {
+  .topbar {
+    height: auto;
+    min-height: 70px;
+    flex-wrap: wrap;
+    padding-block: 14px;
+  }
+  .topbar nav {
+    order: 3;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .topbar > .button {
+    margin-left: auto;
+  }
   body {
     min-width: 360px;
   }

@@ -5,6 +5,7 @@ import AuthPageLayout from '../components/AuthPageLayout.vue'
 import type { Role } from '../composables/auth'
 import { saveAuth } from '../composables/auth'
 import { request } from '../lib/api'
+import { safeReturnTo } from '../lib/navigation'
 
 const router = useRouter()
 const username = ref('')
@@ -16,6 +17,7 @@ const busy = ref(false)
 const errorMessage = ref('')
 
 async function register(): Promise<void> {
+  if (busy.value) return
   busy.value = true
   errorMessage.value = ''
 
@@ -37,7 +39,7 @@ async function register(): Promise<void> {
     })
 
     saveAuth(response.accessToken)
-    await router.push('/')
+    await router.push(safeReturnTo(router.currentRoute.value.query.returnTo, role.value === 'OWNER' ? '/owner' : '/'))
   } catch (error) {
     errorMessage.value = (error as Error).message
   } finally {
@@ -107,7 +109,7 @@ async function register(): Promise<void> {
 
     <template #switch>
       <span>Zaten hesabın var mı?</span>
-      <RouterLink to="/login">Giriş yap</RouterLink>
+      <RouterLink :to="{ path: '/login', query: { returnTo: safeReturnTo(router.currentRoute.value.query.returnTo) } }">Giriş yap</RouterLink>
     </template>
   </AuthPageLayout>
 </template>
