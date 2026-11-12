@@ -62,6 +62,7 @@ Thumbs.db
 /.beyin-note-write/
 /tmp/
 /temp/
+/check.ps1
 *.tmp
 *.temp
 *.swp

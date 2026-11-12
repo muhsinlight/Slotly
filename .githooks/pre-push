@@ -1,0 +1,34 @@
+#!/bin/sh
+set -eu
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+head=$(git rev-parse HEAD)
+has_updates=false
+while read -r local_ref local_sha remote_ref remote_sha; do
+    case "$local_sha" in
+        *[!0]*) ;;
+        *) continue ;;
+    esac
+    has_updates=true
+    if [ "$local_sha" != "$head" ]; then
+        echo 'Push blocked: check out the commit being pushed and push it separately.' >&2
+        exit 1
+    fi
+done
+
+if [ "$has_updates" = false ]; then
+    exit 0
+fi
+
+if [ -n "$(git status --porcelain)" ]; then
+    echo 'Push blocked: commit or stash pending changes so checks verify the commit being pushed.' >&2
+    exit 1
+fi
+
+if [ ! -f "$root/check.ps1" ]; then
+    echo 'Push blocked: local check.ps1 is missing. Restore it before pushing.' >&2
+    exit 1
+fi
+
+exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/check.ps1"

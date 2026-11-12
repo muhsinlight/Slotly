@@ -4,6 +4,22 @@
 
 ## Geliştirme kontrolleri
 
+Windows'ta GitHub'a göndermeden önce CI kontrollerinin tamamını proje kökünden çalıştırın (Docker Desktop, Java 25 ve Node.js 24 gerekir):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\check.ps1
+```
+
+Komut backend `verify`, yedek geri yükleme, `npm ci`, frontend tür kontrolü/derleme ve Chromium tarayıcı testlerini sırayla çalıştırır; ilk hatada durur. Test veritabanları geçicidir. Chromium ilk kullanımda indirilir.
+
+`check.ps1` yerel bir dosyadır; `.gitignore` kapsamındadır ve GitHub'a gönderilmez. Yeni bir klonda kullanmak için önce dosyayı proje köküne ayrıca kopyalayın. Her `git push` öncesinde otomatik çalışması için her yeni klonda bir kez kurun:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install-hooks.ps1
+```
+
+Kanca hata olduğunda push'u engeller. Kontrollerin gönderilen commit'i doğrulaması için çalışma ağacının temiz olmasını ve gönderilen commit'in mevcut `HEAD` olmasını ister; yalnız dal silen push'larda test çalıştırmaz. Git kancası yereldir ve atlanabilir; GitHub CI kontrolleri etkin kalır ve Linux ortamındaki farkları da yakalar.
+
 Backend testleri:
 
 Backend testleri geçici PostgreSQL 17 konteynerinde çalışır. Ayrı test veritabanı, 5433 portu ve geçici disk kullanılır; geliştirme veritabanına dokunulmaz.
