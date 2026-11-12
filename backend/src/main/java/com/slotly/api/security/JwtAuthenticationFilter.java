@@ -10,7 +10,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import tools.jackson.databind.ObjectMapper;
-import com.slotly.api.response.ApiResponses;
+import com.slotly.api.response.ApiResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -77,7 +77,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 objectMapper.writeValue(
                     response.getOutputStream(),
-                    ApiResponses.failure(HttpStatus.UNAUTHORIZED, "Invalid or expired bearer token")
+                    ApiResponse.failure(HttpStatus.UNAUTHORIZED, "Invalid or expired bearer token")
                 );
                 return;
             }

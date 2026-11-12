@@ -1,6 +1,6 @@
 package com.slotly.api.security;
 
-import com.slotly.api.response.ApiResponses;
+import com.slotly.api.response.ApiResponse;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -90,7 +90,7 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
             response.setHeader("Retry-After", Long.toString(retrySeconds));
             objectMapper.writeValue(
                 response.getOutputStream(),
-                ApiResponses.failure(HttpStatus.TOO_MANY_REQUESTS, "Login rate limit reached. Try again later.")
+                ApiResponse.failure(HttpStatus.TOO_MANY_REQUESTS, "Login rate limit reached. Try again later.")
             );
             return;
         }

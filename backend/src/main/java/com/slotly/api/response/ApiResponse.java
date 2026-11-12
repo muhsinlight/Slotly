@@ -21,6 +21,13 @@ public class ApiResponse<T> {
         return new Builder<>();
     }
 
+    public static <T> ApiResponse<T> failure(HttpStatus status, String message) {
+        return ApiResponse.<T>builder()
+            .status(status)
+            .message(message)
+            .build();
+    }
+
     public int getStatus() {
         return status;
     }
