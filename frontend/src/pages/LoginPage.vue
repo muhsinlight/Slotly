@@ -22,7 +22,13 @@ async function login(): Promise<void> {
     })
 
     saveAuth(response.accessToken)
-    await router.push('/')
+    const requestedPath = router.currentRoute.value.query.returnTo
+    const returnTo = typeof requestedPath === 'string'
+      && requestedPath.startsWith('/')
+      && !requestedPath.startsWith('//')
+      ? requestedPath
+      : '/'
+    await router.push(returnTo)
   } catch (error) {
     errorMessage.value = (error as Error).message
   } finally {

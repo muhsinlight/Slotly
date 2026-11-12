@@ -223,6 +223,162 @@ a {
   grid-template-columns: minmax(300px,.8fr) minmax(400px,1.2fr);
   gap: 22px;
 }
+.place-search {
+  display: grid;
+  gap: 7px;
+  width: min(440px, 100%);
+  margin: 0 0 18px;
+  color: #626b61;
+  font-size: 12px;
+}
+.place-search input,
+.booking-field input,
+.booking-field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+.booking-page,
+.appointments-page {
+  min-height: 75vh;
+}
+.booking-heading {
+  margin: 24px 0 30px;
+}
+.booking-heading h1,
+.appointments-page h1 {
+  margin: 0;
+  color: #233328;
+  font: 600 clamp(32px, 5vw, 48px)/1.1 Manrope, sans-serif;
+  letter-spacing: -1.8px;
+}
+.booking-heading p {
+  max-width: 600px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.booking-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(280px, .7fr);
+  align-items: start;
+  gap: 20px;
+}
+.booking-card {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+.booking-card h2 {
+  margin: 0 0 18px;
+  font: 600 18px Manrope, sans-serif;
+}
+.booking-field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 22px;
+  color: #626b61;
+  font-size: 12px;
+}
+.booking-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 20px;
+}
+.slot.selected {
+  color: white;
+  background: var(--green);
+}
+.booking-summary dl {
+  display: grid;
+  gap: 0;
+  margin: 0 0 20px;
+}
+.booking-summary dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+.booking-summary dt {
+  color: var(--muted);
+}
+.booking-summary dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+}
+.booking-confirm {
+  width: 100%;
+}
+.booking-summary small {
+  display: block;
+  margin-top: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+.booking-error {
+  padding: 12px 14px;
+  border-radius: 5px;
+  background: #fff1ed;
+  color: #9b443b;
+  font-size: 13px;
+}
+.booking-empty {
+  padding: 48px 20px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  text-align: center;
+}
+.booking-empty b {
+  color: var(--ink);
+}
+.booking-empty p {
+  font-size: 13px;
+}
+.appointment-filters {
+  display: flex;
+  gap: 8px;
+  margin: 24px 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+.filter-button {
+  padding: 11px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.filter-button.active {
+  border-color: var(--green);
+  color: var(--green);
+  font-weight: 700;
+}
+.appointment-info {
+  flex: 1;
+}
+.appointment-info b,
+.appointment-info small {
+  display: block;
+}
+.appointment-info small {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.appointment-card .status.cancelled {
+  color: #846e63;
+  background: #f4efeb;
+}
 .place-list {
   display: flex;
   flex-direction: column;
@@ -704,6 +860,9 @@ footer small {
     bottom: 22px;
   }
   .place-layout {
+    grid-template-columns: 1fr;
+  }
+  .booking-layout {
     grid-template-columns: 1fr;
   }
   .account {

@@ -49,6 +49,12 @@ type WaitlistEntry = {
 }
 
 const places = ref<Place[]>([])
+const placeSearch = ref('')
+const filteredPlaces = computed(() => {
+  const query = placeSearch.value.trim().toLocaleLowerCase('tr-TR')
+  if (!query) return places.value
+  return places.value.filter((place) => `${place.name} ${place.address}`.toLocaleLowerCase('tr-TR').includes(query))
+})
 const offerings = ref<Offering[]>([])
 const appointments = ref<Appointment[]>([])
 const waitlistEntries = ref<WaitlistEntry[]>([])
@@ -339,9 +345,9 @@ onBeforeUnmount(() => {
       <a href="#places">
         Mekânlar
       </a>
-      <a href="#appointments" v-if="token">
+      <RouterLink to="/appointments" v-if="token">
         Randevularım
-      </a>
+      </RouterLink>
       <a href="#waitlist" v-if="token&&role==='CUSTOMER'">
         Bekleme listesi
       </a>
@@ -515,9 +521,13 @@ onBeforeUnmount(() => {
           İşletmelerin hizmetlerini incele, uygun zamanı seç.
         </p>
       </div>
+      <label class="place-search">
+        <span>Mekân ara</span>
+        <input v-model="placeSearch" type="search" placeholder="Mekân adı veya adres" autocomplete="off">
+      </label>
       <div class="place-layout">
         <div class="place-list">
-          <button v-for="(place,index) in places" :key="place.id" class="place-card" :class="{selected:selectedPlace?.id===place.id}" @click="choosePlace(place)">
+          <RouterLink v-for="(place,index) in filteredPlaces" :key="place.id" class="place-card" :to="{ name: 'place', params: { id: place.id } }">
             <span class="place-number">
               {{String(index+1).padStart(2,'0')}}
             </span>
@@ -532,12 +542,13 @@ onBeforeUnmount(() => {
             <span class="arrow">
               ↗
             </span>
-          </button>
+          </RouterLink>
           <p v-if="!places.length" class="empty">
             Henüz listelenen mekân yok.
           </p>
+          <p v-else-if="!filteredPlaces.length" class="empty">Aramana uygun mekân bulunamadı.</p>
         </div>
-        <div class="detail-panel">
+        <div v-if="isOwner" class="detail-panel">
           <template v-if="selectedPlace">
             <div class="detail-head">
               <span class="eyebrow">

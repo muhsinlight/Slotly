@@ -1,4 +1,4 @@
-import { token } from '../composables/auth'
+import { clearAuth, token } from '../composables/auth'
 
 const API_BASE_URL = 'http://localhost:8080/api'
 
@@ -14,6 +14,11 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   const body = response.status === 204 ? null : await response.json().catch(() => null)
 
   if (!response.ok) {
+    if (response.status === 401 && token.value) {
+      clearAuth()
+      window.dispatchEvent(new CustomEvent('slotly:unauthorized'))
+    }
+
     throw new Error(body?.message || body?.reason || `İstek başarısız (${response.status})`)
   }
 
