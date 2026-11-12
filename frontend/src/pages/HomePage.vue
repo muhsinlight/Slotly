@@ -345,6 +345,7 @@ onBeforeUnmount(() => {
       <a href="#places">
         Mekânlar
       </a>
+      <RouterLink v-if="isOwner" to="/owner">İşletme paneli</RouterLink>
       <RouterLink to="/appointments" v-if="token">
         Randevularım
       </RouterLink>

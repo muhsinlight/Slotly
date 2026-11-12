@@ -204,6 +204,18 @@ class BookingServiceIntegrationTests {
     }
 
     @Test
+    void ownerCanSeeInactiveOfferingsToManageThem() {
+        Offering service = saveService(30);
+        service.update(service.getName(), null, service.getPrice(), 30, service.getKind(), false);
+        offerings.save(service);
+
+        var visibleOfferings = bookingService.ownerOfferings(owner.getId(), place.getId());
+
+        assertEquals(1, visibleOfferings.size());
+        assertFalse(visibleOfferings.getFirst().active());
+    }
+
+    @Test
     void overlappingServiceDurationsShareCapacity() {
         place.update(place.getName(), place.getDescription(), place.getAddress(), 2, true);
         places.save(place);

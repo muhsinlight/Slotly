@@ -77,6 +77,17 @@ public class PlaceController {
             .response();
     }
 
+    @GetMapping("/owner/places/{placeId}/offerings")
+    public ResponseEntity<ApiResponse<List<OfferingResponse>>> ownerOfferings(
+        @PathVariable UUID placeId,
+        Authentication authentication
+    ) {
+        return ApiResponse.<List<OfferingResponse>>builder()
+            .message("Offerings listed")
+            .data(service.ownerOfferings(UUID.fromString(authentication.getName()), placeId))
+            .response();
+    }
+
     @PostMapping("/owner/places/{placeId}/offerings")
     public ResponseEntity<ApiResponse<OfferingResponse>> createOffering(@PathVariable UUID placeId, @Valid @RequestBody OfferingRequest request, Authentication authentication) {
         return ApiResponse.<OfferingResponse>builder()

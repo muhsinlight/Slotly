@@ -267,6 +267,134 @@ a {
   align-items: start;
   gap: 20px;
 }
+.owner-dashboard {
+  min-height: 75vh;
+}
+.owner-dashboard > .section-heading h1 {
+  margin: 0;
+  color: #233328;
+  font: 600 clamp(30px, 4vw, 42px)/1.1 Manrope, sans-serif;
+  letter-spacing: -1.6px;
+}
+.owner-select {
+  display: grid;
+  gap: 7px;
+  min-width: 190px;
+  color: #626b61;
+  font-size: 12px;
+}
+.owner-select select,
+.owner-select input,
+.owner-form-grid input,
+.owner-form-grid select {
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+}
+.owner-card {
+  margin: 20px 0;
+  padding: 23px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+.owner-card h2 {
+  margin: 0;
+  font: 600 22px Manrope, sans-serif;
+}
+.owner-card > p {
+  color: var(--muted);
+  font-size: 13px;
+}
+.owner-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+.owner-section-heading .eyebrow {
+  margin-bottom: 8px;
+}
+.owner-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.owner-form-grid label {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  color: #626b61;
+  font-size: 12px;
+}
+.owner-form-grid > button,
+.owner-form-grid > .owner-actions,
+.owner-form-grid > h3 {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.owner-checkbox {
+  display: flex !important;
+  align-items: center;
+  gap: 9px !important;
+}
+.owner-checkbox input {
+  min-height: auto;
+  accent-color: var(--green);
+}
+.owner-editor {
+  margin-top: 19px;
+  padding: 18px;
+  border-radius: 6px;
+  background: #f8f9f6;
+}
+.owner-editor h3 {
+  margin: 0;
+  font: 600 15px Manrope, sans-serif;
+}
+.owner-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.owner-list {
+  border-top: 1px solid var(--line);
+}
+.owner-list-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 62px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--line);
+}
+.owner-list-row > div {
+  flex: 1;
+}
+.owner-list-row b,
+.owner-list-row small {
+  display: block;
+}
+.owner-list-row b {
+  font-size: 13px;
+}
+.owner-list-row small {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.owner-notice {
+  padding: 11px 14px;
+  border-radius: 5px;
+  background: #edf4ea;
+  color: var(--green);
+  font-size: 13px;
+}
 .booking-card {
   padding: 24px;
   border: 1px solid var(--line);

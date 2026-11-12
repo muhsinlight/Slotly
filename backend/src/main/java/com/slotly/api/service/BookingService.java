@@ -134,6 +134,15 @@ public class BookingService {
         return offerings.findByPlaceIdAndActiveTrue(placeId).stream().map(OfferingResponse::from).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<OfferingResponse> ownerOfferings(UUID ownerId, UUID placeId) {
+        requireOwnedPlace(ownerId, placeId);
+        return offerings.findByPlaceIdOrderByNameAsc(placeId)
+            .stream()
+            .map(OfferingResponse::from)
+            .toList();
+    }
+
     @Transactional
     public OfferingResponse createOffering(UUID ownerId, UUID placeId, OfferingRequest request) {
         Place place = requireOwnedPlace(ownerId, placeId);
