@@ -80,6 +80,14 @@ npm run dev
 
 Vite `http://localhost:5173` adresinde açılır. Tarayıcıda bu adresi ziyaret edin. Arayüz API'ye `http://localhost:8080/api` üzerinden bağlanır; API önce çalışıyor olmalıdır.
 
+PostgreSQL, API ve arayüzü tek komutla başlatmak için proje kökünde çalıştırın:
+
+```powershell
+node .\dev.mjs
+```
+
+Komut PostgreSQL'i Compose ile başlatır, backend ve frontend süreçlerini aynı terminalde ayrı etiketli çıktılarla çalıştırır. Durdurmak için `Ctrl+C` kullanın; betiğin başlattığı uygulamalar durur, PostgreSQL çalışmaya devam eder. Servisler zaten açıksa yeni kopya başlatılmaz.
+
 ### 5. İlk hesabı ve mekânı kurun
 
 1. Arayüzde **Kayıt ol** seçeneğini açın. Kullanıcı adı, en az 10 karakterli parola, ad, soyad ve rol girin.
@@ -229,8 +237,10 @@ backend/                       Spring Boot API
   src/main/resources/           uygulama yapılandırması
   src/test/                     backend testleri
 frontend/                      Vue 3 + TypeScript + Vite
-  src/App.vue                   ana kullanıcı arayüzü
+  src/App.vue                   Vue Router görünüm kapsayıcısı
+  src/pages/                    ana ekran, giriş ve kayıt sayfaları
 compose.yaml                   yerel PostgreSQL 17 servisi
+dev.mjs                        PostgreSQL, backend ve frontend'i tek komutla başlatır
 API-CLI-TEST-REPORT.md         API uçları ve hata akışları raporu
 ```
 
