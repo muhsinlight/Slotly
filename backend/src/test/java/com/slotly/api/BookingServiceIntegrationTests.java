@@ -2,6 +2,7 @@
 
 import com.slotly.api.dto.request.AppointmentRequest;
 import com.slotly.api.dto.request.WaitlistRequest;
+import com.slotly.api.dto.request.PlaceRequest;
 import com.slotly.api.entity.Appointment;
 import com.slotly.api.entity.AppointmentStatus;
 import com.slotly.api.entity.BusinessHour;
@@ -140,6 +141,66 @@ class BookingServiceIntegrationTests {
 
         assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
         assertEquals(1, appointmentsForThisPlace());
+    }
+
+    @Test
+    void anotherCustomerCannotCancelAnAppointmentAndRepeatedCancellationConflicts() {
+        Offering service = saveService(30);
+        Instant startsAt = bookingDate.atTime(11, 0).atZone(BUSINESS_ZONE).toInstant();
+        UUID appointmentId = bookingService.createAppointment(
+            customerOne.getId(),
+            new AppointmentRequest(place.getId(), service.getId(), startsAt)
+        ).id();
+
+        ResponseStatusException forbidden = org.junit.jupiter.api.Assertions.assertThrows(
+            ResponseStatusException.class,
+            () -> bookingService.cancel(customerTwo.getId(), appointmentId)
+        );
+        assertEquals(HttpStatus.FORBIDDEN, forbidden.getStatusCode());
+        assertEquals(AppointmentStatus.CONFIRMED, appointments.findById(appointmentId).orElseThrow().getStatus());
+
+        bookingService.cancel(customerOne.getId(), appointmentId);
+        ResponseStatusException conflict = org.junit.jupiter.api.Assertions.assertThrows(
+            ResponseStatusException.class,
+            () -> bookingService.cancel(customerOne.getId(), appointmentId)
+        );
+        assertEquals(HttpStatus.CONFLICT, conflict.getStatusCode());
+    }
+
+    @Test
+    void appointmentMustBeInTheFuture() {
+        Offering service = saveService(30);
+        Instant startsAt = clock.instant().minusSeconds(60);
+
+        ResponseStatusException error = org.junit.jupiter.api.Assertions.assertThrows(
+            ResponseStatusException.class,
+            () -> bookingService.createAppointment(
+                customerOne.getId(),
+                new AppointmentRequest(place.getId(), service.getId(), startsAt)
+            )
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+        assertEquals(0, appointmentsForThisPlace());
+    }
+
+    @Test
+    void anotherOwnerCannotChangeAPlace() {
+        User anotherOwner = users.save(new User(
+            "owner-other-" + UUID.randomUUID().toString().substring(0, 8),
+            "hash",
+            "Other",
+            "Owner",
+            UserRole.OWNER
+        ));
+        PlaceRequest update = new PlaceRequest("Changed", null, "Elsewhere", 1, true);
+
+        ResponseStatusException error = org.junit.jupiter.api.Assertions.assertThrows(
+            ResponseStatusException.class,
+            () -> bookingService.updatePlace(anotherOwner.getId(), place.getId(), update)
+        );
+
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatusCode());
     }
 
     @Test
