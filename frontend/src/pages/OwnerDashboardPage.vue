@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
-import { clearAuth, role } from '../composables/auth'
+import AppHeader from '../components/AppHeader.vue'
 import { request } from '../lib/api'
 
 type Place = { id: string; name: string; description: string | null; address: string; capacity: number; active: boolean }
@@ -21,6 +20,7 @@ const offerings = ref<Offering[]>([])
 const hours = ref<BusinessHour[]>([])
 const appointments = ref<Appointment[]>([])
 const date = ref(localDate())
+const calendarView = ref<'day' | 'week'>('day')
 const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
@@ -39,7 +39,12 @@ function localDate(): string {
 
 function dayRange(): { from: string; to: string } {
   const start = new Date(`${date.value}T00:00:00`)
-  return { from: start.toISOString(), to: new Date(start.getTime() + 86_400_000).toISOString() }
+  if (calendarView.value === 'week') {
+    start.setDate(start.getDate() - (start.getDay() + 6) % 7)
+  }
+  const end = new Date(start)
+  end.setDate(end.getDate() + (calendarView.value === 'week' ? 7 : 1))
+  return { from: start.toISOString(), to: end.toISOString() }
 }
 
 function setMessage(value: string): void {
@@ -210,17 +215,13 @@ async function deleteHour(hour: BusinessHour): Promise<void> {
   }
 }
 
-watch([selectedPlaceId, date], () => { void loadPlaceData() })
+watch([selectedPlaceId, date, calendarView], () => { void loadPlaceData() })
 onMounted(loadPlaces)
 </script>
 
 <template>
   <div class="app-shell">
-    <header class="topbar">
-      <RouterLink class="brand" to="/"><span class="brand-mark">S</span>slotly</RouterLink>
-      <nav><RouterLink to="/">Mekânları gör</RouterLink><RouterLink v-if="role === 'CUSTOMER'" to="/appointments">Randevularım</RouterLink></nav>
-      <button class="button quiet" @click="clearAuth(); $router.push('/')">Çıkış</button>
-    </header>
+    <AppHeader />
     <main class="section owner-dashboard">
       <div class="section-heading">
         <div><span class="eyebrow">İŞLETME PANELİ</span><h1>Günlük çalışma alanın</h1></div>
@@ -246,7 +247,12 @@ onMounted(loadPlaces)
       </section>
 
       <template v-else-if="selectedPlace">
-        <section class="owner-card">
+        <nav class="owner-card" aria-label="İşletme kurulum adımları">
+          <p>Kurulum: <a href="#owner-settings">1. Mekân</a> → <a href="#owner-hours">2. Çalışma saatleri</a> → <a href="#owner-services">3. Hizmetler</a></p>
+          <p v-if="!hours.length">Randevu alabilmek için çalışma saatlerini ekle.</p>
+          <p v-else-if="!offerings.some(item => item.active && item.kind === 'SERVICE')">Çalışma saatlerin hazır. Şimdi randevu alınabilir bir hizmet ekle.</p>
+        </nav>
+        <section id="owner-settings" class="owner-card">
           <div class="owner-section-heading"><div><span class="eyebrow">MEKÂN AYARLARI</span><h2>{{ selectedPlace.name }}</h2></div><span class="status" :class="selectedPlace.active ? '' : 'cancelled'">{{ selectedPlace.active ? 'Yayında' : 'Gizli' }}</span></div>
           <form class="owner-form-grid" @submit.prevent="savePlace">
             <label>Mekân adı<input v-model="placeForm.name" required maxlength="120"></label>
@@ -259,7 +265,7 @@ onMounted(loadPlaces)
         </section>
 
         <section class="owner-card">
-          <div class="owner-section-heading"><div><span class="eyebrow">HİZMETLER</span><h2>Hizmetlerini yönet</h2></div></div>
+          <div id="owner-services" class="owner-section-heading"><div><span class="eyebrow">HİZMETLER</span><h2>Hizmetlerini yönet</h2></div></div>
           <div class="owner-list">
             <article v-for="offering in offerings" :key="offering.id" class="owner-list-row">
               <div><b>{{ offering.name }}</b><small>{{ offering.kind === 'SERVICE' ? `${offering.durationMinutes} dk` : 'Ürün' }} · {{ offering.price.toFixed(2) }} ₺ · {{ offering.active ? 'Yayında' : 'Gizli' }}</small></div>
@@ -280,7 +286,7 @@ onMounted(loadPlaces)
         </section>
 
         <section class="owner-card">
-          <div class="owner-section-heading"><div><span class="eyebrow">HAFTALIK TAKVİM</span><h2>Çalışma saatleri</h2></div></div>
+          <div id="owner-hours" class="owner-section-heading"><div><span class="eyebrow">HAFTALIK TAKVİM</span><h2>Çalışma saatleri</h2></div></div>
           <div class="owner-list">
             <article v-for="hour in hours" :key="hour.id" class="owner-list-row">
               <div><b>{{ days.find((day) => day.value === hour.dayOfWeek)?.label || hour.dayOfWeek }}</b><small>{{ hour.opensAt.slice(0, 5) }} – {{ hour.closesAt.slice(0, 5) }}</small></div>
@@ -298,13 +304,17 @@ onMounted(loadPlaces)
         </section>
 
         <section class="owner-card">
-          <div class="owner-section-heading"><div><span class="eyebrow">GÜNLÜK TAKVİM</span><h2>{{ selectedPlace.name }} randevuları</h2></div><label class="owner-select">Tarih<input v-model="date" type="date"></label></div>
+          <div class="owner-section-heading">
+            <div><span class="eyebrow">{{ calendarView === 'week' ? 'HAFTALIK TAKVİM' : 'GÜNLÜK TAKVİM' }}</span><h2>{{ selectedPlace.name }} randevuları</h2></div>
+            <label class="owner-select">Görünüm<select v-model="calendarView"><option value="day">Günlük</option><option value="week">Haftalık</option></select></label>
+            <label class="owner-select">Tarih<input v-model="date" type="date"></label>
+          </div>
           <div class="owner-list">
             <article v-for="appointment in appointments" :key="appointment.id" class="owner-list-row">
               <div><b>{{ new Date(appointment.startsAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) }} · {{ appointment.customerName }}</b><small>{{ appointment.offeringName }} · {{ new Date(appointment.startsAt).toLocaleDateString('tr-TR') }}</small></div>
               <span class="status" :class="appointment.status.toLowerCase()">{{ appointment.status === 'CONFIRMED' ? 'Onaylandı' : 'İptal edildi' }}</span>
             </article>
-            <p v-if="!appointments.length" class="empty">Bu tarihte randevu bulunmuyor.</p>
+            <p v-if="!appointments.length" class="empty">Bu {{ calendarView === 'week' ? 'haftada' : 'tarihte' }} randevu bulunmuyor.</p>
           </div>
         </section>
       </template>
