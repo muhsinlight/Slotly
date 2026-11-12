@@ -4,11 +4,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.time.Instant;
 import java.util.*;
 public interface AppointmentRepository extends JpaRepository<Appointment, UUID> {
-    long countByPlaceIdAndStatusAndStartsAtLessThanAndEndsAtGreaterThan(
+    List<Appointment> findByPlaceIdAndStatusAndStartsAtLessThanAndEndsAtGreaterThan(
         UUID placeId,
         AppointmentStatus status,
         Instant end,
         Instant start
+    );
+
+    boolean existsByCustomerIdAndOfferingIdAndStartsAtAndStatus(
+        UUID customerId,
+        UUID offeringId,
+        Instant startsAt,
+        AppointmentStatus status
     );
 
     List<Appointment> findByCustomerIdOrderByStartsAtDesc(UUID customerId);

@@ -3,7 +3,6 @@ package com.slotly.api;
 import com.slotly.api.dto.request.AppointmentRequest;
 import com.slotly.api.dto.request.WaitlistRequest;
 import com.slotly.api.dto.request.PlaceRequest;
-import com.slotly.api.entity.Appointment;
 import com.slotly.api.entity.AppointmentStatus;
 import com.slotly.api.entity.BusinessHour;
 import com.slotly.api.entity.Offering;
@@ -26,11 +25,12 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
-import java.time.DayOfWeek;
+
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -50,6 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @SpringBootTest
+@ActiveProfiles("integration-test")
 @Import(BookingServiceIntegrationTests.TestClockConfiguration.class)
 class BookingServiceIntegrationTests {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Europe/Istanbul");
@@ -77,6 +78,9 @@ class BookingServiceIntegrationTests {
 
     @Autowired
     private TestClock clock;
+
+    @Autowired
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     private User owner;
     private User customerOne;
@@ -277,6 +281,91 @@ class BookingServiceIntegrationTests {
         assertEquals(2, appointmentsForThisPlace());
     }
 
+    @Test
+    void consecutiveAppointmentsDoNotConsumeTwoSeatsAtTheSameTime() {
+        place.update(place.getName(), null, place.getAddress(), 2, true);
+        places.save(place);
+        Offering shortService = saveService(30);
+        Offering longService = saveService(60);
+        Instant start = bookingDate.atTime(10, 0).atZone(BUSINESS_ZONE).toInstant();
+        bookingService.createAppointment(customerOne.getId(), new AppointmentRequest(place.getId(), shortService.getId(), start));
+        bookingService.createAppointment(customerTwo.getId(), new AppointmentRequest(place.getId(), shortService.getId(), start.plusSeconds(1800)));
+
+        bookingService.createAppointment(customerOne.getId(), new AppointmentRequest(place.getId(), longService.getId(), start));
+
+        assertEquals(3, appointmentsForThisPlace());
+    }
+
+    @Test
+    void repeatedBookingCannotCreateADuplicateWhenCapacityRemains() {
+        place.update(place.getName(), null, place.getAddress(), 2, true);
+        places.save(place);
+        Offering service = saveService(30);
+        Instant start = bookingDate.atTime(10, 0).atZone(BUSINESS_ZONE).toInstant();
+        AppointmentRequest request = new AppointmentRequest(place.getId(), service.getId(), start);
+        bookingService.createAppointment(customerOne.getId(), request);
+
+        ResponseStatusException error = org.junit.jupiter.api.Assertions.assertThrows(
+            ResponseStatusException.class,
+            () -> bookingService.createAppointment(customerOne.getId(), request)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
+        assertEquals(1, appointmentsForThisPlace());
+    }
+
+    @Test
+    void concurrentAcceptanceCreatesOnlyOneAppointmentWithMultipleFreeSeats() throws Exception {
+        place.update(place.getName(), null, place.getAddress(), 3, true);
+        places.save(place);
+        Offering service = saveService(30);
+        Instant start = bookingDate.atTime(10, 0).atZone(BUSINESS_ZONE).toInstant();
+        User third = users.save(new User(
+            "third-" + UUID.randomUUID().toString().substring(0, 8),
+            "hash", "Third", "Test", UserRole.CUSTOMER
+        ));
+        User waiting = users.save(new User(
+            "waiting-" + UUID.randomUUID().toString().substring(0, 8),
+            "hash", "Waiting", "Test", UserRole.CUSTOMER
+        ));
+        UUID first = bookingService.createAppointment(customerOne.getId(), new AppointmentRequest(place.getId(), service.getId(), start)).id();
+        UUID second = bookingService.createAppointment(customerTwo.getId(), new AppointmentRequest(place.getId(), service.getId(), start)).id();
+        bookingService.createAppointment(third.getId(), new AppointmentRequest(place.getId(), service.getId(), start));
+        UUID entryId = bookingService.joinWaitlist(waiting.getId(), new WaitlistRequest(place.getId(), service.getId(), start)).id();
+        bookingService.cancel(customerOne.getId(), first);
+        bookingService.cancel(customerTwo.getId(), second);
+        CyclicBarrier barrier = new CyclicBarrier(2);
+        var executor = Executors.newFixedThreadPool(2);
+        Callable<Boolean> accept = () -> new org.springframework.transaction.support.TransactionTemplate(transactionManager)
+            .execute(status -> {
+                waitlist.findById(entryId).orElseThrow();
+                try {
+                    barrier.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                    bookingService.acceptWaitlistOffer(waiting.getId(), entryId);
+                    return true;
+                } catch (ResponseStatusException exception) {
+                    assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+                    return false;
+                } catch (Exception exception) {
+                    throw new AssertionError(exception);
+                }
+            });
+        try {
+            List<Future<Boolean>> results = executor.invokeAll(List.of(accept, accept));
+            int successes = 0;
+            for (Future<Boolean> result : results) {
+                if (result.get()) {
+                    successes++;
+                }
+            }
+            assertEquals(1, successes);
+            assertEquals("ACCEPTED", waitlist.findById(entryId).orElseThrow().getStatus().name());
+            assertEquals(1, bookingService.myAppointments(waiting.getId()).size());
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
     private Callable<Boolean> bookAfterBarrier(
         CyclicBarrier barrier,
         User customer,
@@ -354,4 +443,3 @@ class BookingServiceIntegrationTests {
         }
     }
 }
-
