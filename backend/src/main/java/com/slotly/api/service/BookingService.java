@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -52,6 +53,7 @@ public class BookingService {
     private final UserRepository users;
     private final WaitlistRepository waitlist;
     private final ZoneId zone;
+    private final Clock clock;
 
     public BookingService(
         PlaceRepository places,
@@ -60,6 +62,7 @@ public class BookingService {
         AppointmentRepository appointments,
         UserRepository users,
         WaitlistRepository waitlist,
+        Clock clock,
         @Value("${slotly.business.time-zone:Europe/Istanbul}") String zone
     ) {
         this.places = places;
@@ -68,6 +71,7 @@ public class BookingService {
         this.appointments = appointments;
         this.users = users;
         this.waitlist = waitlist;
+        this.clock = clock;
         this.zone = ZoneId.of(zone);
     }
 
@@ -255,7 +259,7 @@ public class BookingService {
 
                 while (!slot.plusSeconds(slotStepSeconds).isAfter(businessClosing)) {
                     Instant end = slot.plusSeconds(slotStepSeconds);
-                    if (!slot.isBefore(Instant.now()) && !end.isAfter(to) && hasCapacity(place, slot, end)) {
+                    if (!slot.isBefore(Instant.now(clock)) && !end.isAfter(to) && hasCapacity(place, slot, end)) {
                         slots.add(slot);
                     }
                     slot = slot.plusSeconds(slotStepSeconds);
@@ -273,7 +277,7 @@ public class BookingService {
 
         Instant startsAt = request.startsAt();
         Instant endsAt = startsAt.plusSeconds(offering.getDurationMinutes() * 60L);
-        if (!startsAt.isAfter(Instant.now())) {
+        if (!startsAt.isAfter(Instant.now(clock))) {
             throw bad("Appointment must start in the future");
         }
         if (!isValidServiceSlot(place.getId(), offering, startsAt, endsAt)) {
@@ -342,7 +346,7 @@ public class BookingService {
 
         Instant startsAt = request.startsAt();
         Instant endsAt = startsAt.plusSeconds(offering.getDurationMinutes() * 60L);
-        if (!startsAt.isAfter(Instant.now())) {
+        if (!startsAt.isAfter(Instant.now(clock))) {
             throw bad("Requested time must be in the future");
         }
         if (!isValidServiceSlot(place.getId(), offering, startsAt, endsAt)) {
@@ -383,7 +387,7 @@ public class BookingService {
         if (entry.getStatus() != WaitlistStatus.OFFERED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "There is no active offer for this entry");
         }
-        if (!entry.getOfferExpiresAt().isAfter(Instant.now())) {
+        if (!entry.getOfferExpiresAt().isAfter(Instant.now(clock))) {
             entry.changeStatus(WaitlistStatus.EXPIRED);
             offerNext(place, entry.getOffering(), entry.getRequestedStartsAt());
             throw new ResponseStatusException(HttpStatus.GONE, "The waitlist offer has expired");
@@ -437,7 +441,7 @@ public class BookingService {
     @Scheduled(fixedDelay = 30_000)
     @Transactional
     public void expireOffers() {
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         List<WaitlistEntry> expiredOffers = waitlist.findByStatusAndOfferExpiresAtLessThanEqual(
             WaitlistStatus.OFFERED,
             now
@@ -476,7 +480,7 @@ public class BookingService {
         if (waitingEntries.isEmpty()) {
             return;
         }
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         waitingEntries.getFirst().offer(now, now.plus(WAITLIST_OFFER_LIFETIME));
     }
 
