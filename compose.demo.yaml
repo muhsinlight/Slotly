@@ -1,0 +1,19 @@
+name: slotly-demo
+services:
+  postgres-demo:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: slotly_demo
+      POSTGRES_USER: slotly
+      POSTGRES_PASSWORD: slotly_demo
+    ports:
+      - "127.0.0.1:5435:5432"
+    volumes:
+      - demo-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U slotly -d slotly_demo"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+volumes:
+  demo-data:
