@@ -5,10 +5,13 @@ import com.slotly.api.dto.response.AppointmentResponse;
 import com.slotly.api.dto.response.WaitlistResponse;
 import com.slotly.api.response.ApiResponse;
 import com.slotly.api.service.BookingService;
+import com.slotly.api.service.WaitlistNotificationService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,9 +27,16 @@ import java.util.UUID;
 @RequestMapping("/api/waitlist")
 public class WaitlistController {
     private final BookingService bookingService;
+    private final WaitlistNotificationService notifications;
 
-    public WaitlistController(BookingService bookingService) {
+    public WaitlistController(BookingService bookingService, WaitlistNotificationService notifications) {
         this.bookingService = bookingService;
+        this.notifications = notifications;
+    }
+
+    @GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter events(Authentication authentication) {
+        return notifications.subscribe(UUID.fromString(authentication.getName()));
     }
 
     @GetMapping("/me")

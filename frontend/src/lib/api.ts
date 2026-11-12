@@ -1,6 +1,7 @@
 import { clearAuth, token } from '../composables/auth'
 
-const API_BASE_URL = 'http://localhost:8080/api'
+const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '')
+export const API_BASE_URL = `${API_ORIGIN}/api`
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {

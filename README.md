@@ -187,6 +187,7 @@ Aşağıdaki uçlar yalnızca ilgili mekânın sahibi olan `OWNER` rolüyle kull
 | `GET /api/appointments/me` | `CUSTOMER` | Müşterinin kendi randevularını listeler. |
 | `DELETE /api/appointments/{id}` | Randevu sahibi veya mekân sahibi | Randevuyu iptal eder; iptal edilmiş randevu kapasiteyi tüketmez. |
 | `GET /api/waitlist/me` | `CUSTOMER` | Müşterinin bekleme kayıtlarını ve tekliflerini listeler. |
+| `GET /api/waitlist/events` | `CUSTOMER` | `text/event-stream` üzerinden yeni teklifleri iletir. Akış kesilirse istemci yeniden bağlanır ve yedek olarak kayıtları yeniler. |
 | `POST /api/waitlist` | `CUSTOMER` | Kapasitesi dolu bir hizmet ve saat için bekleme kaydı açar. |
 | `POST /api/waitlist/{id}/accept` | `CUSTOMER` | Aktif teklifi kabul eder ve randevu oluşturur. |
 | `POST /api/waitlist/{id}/decline` | `CUSTOMER` | Aktif teklifi reddeder. |

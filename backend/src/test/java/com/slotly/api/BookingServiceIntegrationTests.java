@@ -1,4 +1,4 @@
-﻿package com.slotly.api;
+package com.slotly.api;
 
 import com.slotly.api.dto.request.AppointmentRequest;
 import com.slotly.api.dto.request.WaitlistRequest;

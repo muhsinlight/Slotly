@@ -6,6 +6,7 @@ import RegisterPage from './pages/RegisterPage.vue'
 import PlacePage from './pages/PlacePage.vue'
 import AppointmentsPage from './pages/AppointmentsPage.vue'
 import OwnerDashboardPage from './pages/OwnerDashboardPage.vue'
+import WaitlistPage from './pages/WaitlistPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -14,7 +15,8 @@ const router = createRouter({
     { path: '/login', name: 'login', component: LoginPage },
     { path: '/register', name: 'register', component: RegisterPage },
     { path: '/places/:id', name: 'place', component: PlacePage },
-    { path: '/appointments', name: 'appointments', component: AppointmentsPage, meta: { requiresAuth: true } },
+    { path: '/appointments', name: 'appointments', component: AppointmentsPage, meta: { requiresAuth: true, requiresCustomer: true } },
+    { path: '/waitlist', name: 'waitlist', component: WaitlistPage, meta: { requiresAuth: true, requiresCustomer: true } },
     { path: '/owner', name: 'owner', component: OwnerDashboardPage, meta: { requiresAuth: true, requiresOwner: true } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
@@ -31,6 +33,10 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.requiresOwner && role.value !== 'OWNER') {
+    return { name: 'home' }
+  }
+
+  if (to.meta.requiresCustomer && role.value !== 'CUSTOMER') {
     return { name: 'home' }
   }
 

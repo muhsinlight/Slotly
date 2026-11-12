@@ -349,9 +349,9 @@ onBeforeUnmount(() => {
       <RouterLink to="/appointments" v-if="token">
         Randevularım
       </RouterLink>
-      <a href="#waitlist" v-if="token&&role==='CUSTOMER'">
+      <RouterLink to="/waitlist" v-if="token&&role==='CUSTOMER'">
         Bekleme listesi
-      </a>
+      </RouterLink>
     </nav>
     <button v-if="token" class="button quiet" @click="logout">
       Çıkış

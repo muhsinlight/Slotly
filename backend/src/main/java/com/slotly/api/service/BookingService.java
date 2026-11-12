@@ -26,6 +26,7 @@ import com.slotly.api.repository.PlaceRepository;
 import com.slotly.api.repository.UserRepository;
 import com.slotly.api.repository.WaitlistRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -54,6 +55,7 @@ public class BookingService {
     private final WaitlistRepository waitlist;
     private final ZoneId zone;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     public BookingService(
         PlaceRepository places,
@@ -63,6 +65,7 @@ public class BookingService {
         UserRepository users,
         WaitlistRepository waitlist,
         Clock clock,
+        ApplicationEventPublisher events,
         @Value("${slotly.business.time-zone:Europe/Istanbul}") String zone
     ) {
         this.places = places;
@@ -72,6 +75,7 @@ public class BookingService {
         this.users = users;
         this.waitlist = waitlist;
         this.clock = clock;
+        this.events = events;
         this.zone = ZoneId.of(zone);
     }
 
@@ -490,7 +494,10 @@ public class BookingService {
             return;
         }
         Instant now = Instant.now(clock);
-        waitingEntries.getFirst().offer(now, now.plus(WAITLIST_OFFER_LIFETIME));
+        WaitlistEntry nextCustomer = waitingEntries.getFirst();
+        Instant expiresAt = now.plus(WAITLIST_OFFER_LIFETIME);
+        nextCustomer.offer(now, expiresAt);
+        events.publishEvent(new WaitlistOfferEvent(nextCustomer.getCustomer().getId(), nextCustomer.getId(), expiresAt));
     }
 
     private void ensureBookableOffering(Place place, Offering offering) {
