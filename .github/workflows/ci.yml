@@ -37,6 +37,12 @@ jobs:
       - name: Run backend tests
         working-directory: backend
         run: ./mvnw --batch-mode verify
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify isolated backup restore
+        working-directory: backend
+        run: node verify-restore.mjs ${{ job.services.postgres.id }}
 
   frontend:
     runs-on: ubuntu-latest

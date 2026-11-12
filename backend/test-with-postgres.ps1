@@ -15,6 +15,11 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Maven verification failed with exit code $LASTEXITCODE."
     }
+    $testContainer = docker compose -f $composeFile ps -q postgres-test
+    & node (Join-Path $PSScriptRoot 'verify-restore.mjs') $testContainer
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Isolated backup restore verification failed.'
+    }
 }
 finally {
     docker compose -f $composeFile down
