@@ -54,3 +54,48 @@ Thumbs.db
 *.suo
 *.user
 *.iml
+
+# Local tooling and scratch files
+/.agents/
+/.codex/
+/.aws/
+/.beyin-note-write/
+/tmp/
+/temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Additional secret formats (keep shareable examples)
+.env.*.local
+*.env
+!*.env.example
+*.p8
+*.der
+**/application-local.yml
+**/application-local.yaml
+**/application-secret.yml
+**/application-secret.yaml
+**/application-secrets.yml
+**/application-secrets.yaml
+
+# Database runtime files and backups; SQL migrations remain tracked
+*.sql.gz
+*.sql.zip
+*.db
+*.db-journal
+*.sqlite-wal
+*.sqlite-shm
+/pgdata/
+/postgres-data/
+/backups/
+
+# OS metadata and diagnostic dumps
+Desktop.ini
+$RECYCLE.BIN/
+._*
+*.hprof
+hs_err_pid*
+replay_pid*
