@@ -1,6 +1,7 @@
 package com.slotly.api.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -17,12 +18,29 @@ public class WaitlistNotificationService {
     private final Map<UUID, Set<SseEmitter>> subscribers = new ConcurrentHashMap<>();
 
     public SseEmitter subscribe(UUID customerId) {
-        SseEmitter emitter = new SseEmitter(0L);
-        subscribers.computeIfAbsent(customerId, ignored -> new CopyOnWriteArraySet<>()).add(emitter);
+        SseEmitter emitter = new SseEmitter(300_000L);
+        subscribers.compute(customerId, (id, existing) -> {
+            Set<SseEmitter> emitters = existing == null ? new CopyOnWriteArraySet<>() : existing;
+            emitters.add(emitter);
+            return emitters;
+        });
         emitter.onCompletion(() -> remove(customerId, emitter));
-        emitter.onTimeout(() -> remove(customerId, emitter));
+        emitter.onTimeout(() -> {
+            remove(customerId, emitter);
+            emitter.complete();
+        });
         emitter.onError(ignored -> remove(customerId, emitter));
+        send(customerId, emitter, SseEmitter.event().name("connected").data("ready"));
         return emitter;
+    }
+
+    @Scheduled(fixedDelay = 20_000)
+    public void heartbeat() {
+        subscribers.forEach((customerId, emitters) -> {
+            for (SseEmitter emitter : emitters) {
+                send(customerId, emitter, SseEmitter.event().comment("keepalive"));
+            }
+        });
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -33,28 +51,28 @@ public class WaitlistNotificationService {
         }
 
         for (SseEmitter emitter : emitters) {
-            try {
-                emitter.send(SseEmitter.event()
+            send(event.customerId(), emitter, SseEmitter.event()
                     .name("offer")
                     .data(Map.of(
                         "entryId", event.entryId(),
                         "offerExpiresAt", event.offerExpiresAt()
                     )));
-            } catch (IOException | IllegalStateException exception) {
-                remove(event.customerId(), emitter);
-            }
+        }
+    }
+
+    private void send(UUID customerId, SseEmitter emitter, SseEmitter.SseEventBuilder event) {
+        try {
+            emitter.send(event);
+        } catch (IOException | IllegalStateException exception) {
+            remove(customerId, emitter);
+            emitter.complete();
         }
     }
 
     private void remove(UUID customerId, SseEmitter emitter) {
-        Set<SseEmitter> emitters = subscribers.get(customerId);
-        if (emitters == null) {
-            return;
-        }
-
-        emitters.remove(emitter);
-        if (emitters.isEmpty()) {
-            subscribers.remove(customerId, emitters);
-        }
+        subscribers.computeIfPresent(customerId, (id, emitters) -> {
+            emitters.remove(emitter);
+            return emitters.isEmpty() ? null : emitters;
+        });
     }
 }
