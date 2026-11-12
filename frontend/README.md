@@ -11,4 +11,4 @@ API varsayılan olarak `http://localhost:8080` adresinde beklenir. Farklı adres
 
 - `npm run build`: TypeScript kontrolü ve üretim derlemesi.
 - `npm run preview`: Üretim derlemesini yerelde önizleme.
-- `npm run test:e2e`: Hazır test ortamına karşı Playwright testleri. Ortamı da başlatmak için kökteki `test-browser.ps1` betiğini kullanın.
+- `npm run test:e2e`: Hazır test ortamına karşı Playwright testleri. Ortamı da başlatmak için `scripts/test-browser.ps1` betiğini kullanın.

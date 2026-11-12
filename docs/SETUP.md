@@ -59,7 +59,7 @@ Farklı API ortamları için `frontend/.env.example` örneğindeki `VITE_API_BAS
 PostgreSQL, API ve arayüzü tek komutla başlatmak için proje kökünde çalıştırın:
 
 ```powershell
-node .\dev.mjs
+node .\scripts\dev.mjs
 ```
 
 Komut PostgreSQL'i Compose ile başlatır, backend ve frontend süreçlerini aynı terminalde ayrı etiketli çıktılarla çalıştırır. Durdurmak için `Ctrl+C` kullanın; betiğin başlattığı uygulamalar durur, PostgreSQL çalışmaya devam eder. Servisler zaten açıksa yeni kopya başlatılmaz.
@@ -81,7 +81,7 @@ API'yi doğrudan kullanırken kayıt ve giriş ayrı çağrılardır: `POST /api
 Demo kendi `slotly_demo` veritabanı, 5435 portu ve `slotly-demo` Compose projesini kullanır. Tek örnek işletme, iki hizmet, haftalık çalışma saatleri ve iki hesap oluşturur. Yeniden başlatmak mevcut demo işletmesini çoğaltmaz.
 
 ```powershell
-docker compose -f compose.demo.yaml up -d --wait
+docker compose -f docker/compose.demo.yaml up -d --wait
 cd backend
 .\mvnw.cmd spring-boot:run '-Dspring-boot.run.profiles=demo'
 ```
@@ -94,7 +94,7 @@ $env:VITE_API_BASE_URL = 'http://localhost:8082'
 npm run dev -- --port 5174 --strictPort
 ```
 
-`http://localhost:5174` üzerinde `demo-owner` veya `demo-customer` ile giriş yapılabilir; yalnız bu yerel demo hesaplarının parolası `SlotlyDemo2026!` olur. Demo profili `prod` ile birlikte çalışmayı ve farklı adlı veritabanına örnek veri yazmayı reddeder. Demo veritabanını durdurmak için `docker compose -f compose.demo.yaml down` kullanılır.
+`http://localhost:5174` üzerinde `demo-owner` veya `demo-customer` ile giriş yapılabilir; yalnız bu yerel demo hesaplarının parolası `SlotlyDemo2026!` olur. Demo profili `prod` ile birlikte çalışmayı ve farklı adlı veritabanına örnek veri yazmayı reddeder. Demo veritabanını durdurmak için `docker compose -f docker/compose.demo.yaml down` kullanılır.
 
 Backend aşağıdaki değerleri süreç ortam değişkenlerinden okur. Varsayılanlar yerel geliştirme içindir.
 

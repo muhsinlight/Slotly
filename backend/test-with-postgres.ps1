@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$composeFile = Join-Path $repositoryRoot 'compose.integration-test.yaml'
+$composeFile = Join-Path $repositoryRoot 'docker/compose.integration-test.yaml'
 
 docker compose -f $composeFile up -d --wait postgres-test
 if ($LASTEXITCODE -ne 0) {
@@ -11,7 +11,7 @@ try {
     $env:TEST_DATABASE_URL = 'jdbc:postgresql://localhost:5433/slotly_test'
     $env:TEST_DATABASE_USERNAME = 'slotly'
     $env:TEST_DATABASE_PASSWORD = 'slotly'
-    & (Join-Path $PSScriptRoot 'mvnw.cmd') --batch-mode verify
+    & (Join-Path $PSScriptRoot 'mvnw.cmd') --batch-mode --file (Join-Path $PSScriptRoot 'pom.xml') verify
     if ($LASTEXITCODE -ne 0) {
         throw "Maven verification failed with exit code $LASTEXITCODE."
     }

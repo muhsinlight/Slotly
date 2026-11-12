@@ -2,7 +2,7 @@ package com.slotly.api.config;
 
 import com.slotly.api.security.JwtAuthenticationFilter;
 import com.slotly.api.security.LoginRateLimitFilter;
-import com.slotly.api.response.ApiResponses;
+import com.slotly.api.response.ApiResponse;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -78,7 +78,7 @@ public class SecurityConfig {
                     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                     objectMapper.writeValue(
                         response.getOutputStream(),
-                        ApiResponses.failure(HttpStatus.UNAUTHORIZED, "Authentication is required")
+                        ApiResponse.failure(HttpStatus.UNAUTHORIZED, "Authentication is required")
                     );
                 })
                 .accessDeniedHandler((request, response, exception) -> {
@@ -86,7 +86,7 @@ public class SecurityConfig {
                     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                     objectMapper.writeValue(
                         response.getOutputStream(),
-                        ApiResponses.failure(HttpStatus.FORBIDDEN, "You do not have permission for this operation")
+                        ApiResponse.failure(HttpStatus.FORBIDDEN, "You do not have permission for this operation")
                     );
                 }))
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

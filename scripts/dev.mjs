@@ -8,7 +8,7 @@ import { createInterface } from 'node:readline'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
-const root = path.dirname(fileURLToPath(import.meta.url))
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const backendDirectory = path.join(root, 'backend')
 const frontendDirectory = path.join(root, 'frontend')
 const isWindows = process.platform === 'win32'

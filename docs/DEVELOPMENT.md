@@ -4,6 +4,22 @@
 
 ## Geliştirme kontrolleri
 
+Windows'ta GitHub'a göndermeden önce CI kontrollerinin tamamını proje kökünden çalıştırın (Docker Desktop, Java 25 ve Node.js 24 gerekir):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check.ps1
+```
+
+Komut backend `verify`, yedek geri yükleme, `npm ci`, frontend tür kontrolü/derleme ve Chromium tarayıcı testlerini sırayla çalıştırır; ilk hatada durur. Test veritabanları geçicidir. Chromium ilk kullanımda indirilir.
+
+`scripts/check.ps1` yerel bir dosyadır; `.gitignore` kapsamındadır ve GitHub'a gönderilmez. Yeni bir klonda kullanmak için önce dosyayı `scripts/` klasörüne ayrıca kopyalayın. Her `git push` öncesinde otomatik çalışması için her yeni klonda bir kez kurun:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-hooks.ps1
+```
+
+Kanca hata olduğunda push'u engeller. Kontrollerin gönderilen commit'i doğrulaması için çalışma ağacının temiz olmasını ve gönderilen commit'in mevcut `HEAD` olmasını ister; yalnız dal silen push'larda test çalıştırmaz. Git kancası yereldir ve atlanabilir; GitHub CI kontrolleri etkin kalır ve Linux ortamındaki farkları da yakalar.
+
 Backend testleri:
 
 Backend testleri geçici PostgreSQL 17 konteynerinde çalışır. Ayrı test veritabanı, 5433 portu ve geçici disk kullanılır; geliştirme veritabanına dokunulmaz.
@@ -29,7 +45,7 @@ cd frontend
 npm ci
 npx playwright install chromium
 cd ..
-powershell -NoProfile -ExecutionPolicy Bypass -File .\test-browser.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-browser.ps1
 ```
 
 Tarayıcı ortamı veritabanı için 5434, API için 8081 ve arayüz için 4173 portlarını kullanır. Testler seçimle girişe dönüşü, rezervasyon/iptali, saat çakışmasını, bekleme listesini ve 401 sonrası dönüşü kapsar. CI aynı akışları PostgreSQL servisiyle çalıştırır; başarısızlık raporunu artifact olarak saklar.
