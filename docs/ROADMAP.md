@@ -1,6 +1,20 @@
 # Slotly geliştirme planı
 
-12 Kasım 2026. Mevcut kaynak kodu ve README üzerinden hazırlanmış öneridir; aşağıdaki yeni işler henüz uygulanmadı. Auth sayfalarının yeni sağ paneli kullanıcı tarafından görsel olarak beğenildi.
+12 Kasım 2026. Mevcut kaynak kodu ve README üzerinden hazırlanmış plan ve uygulama durumu. Auth sayfalarının yeni sağ paneli kullanıcı tarafından görsel olarak beğenildi.
+
+## Uygulama durumu — 12 Kasım 2026
+
+| Aşama | Uygulananlar | Açık kalanlar |
+|---|---|---|
+| 1. Müşteri akışı | Arama, mekân detayı, hizmet/tarih/saat, özet/onay, giriş ve kayıttan seçimle dönüş, ayrı randevu sayfası, iptal onayı, 401/oturum temizliği | Temel tamamlanma ölçütleri mobil tarayıcı testinde doğrulandı. |
+| 2. Güvenilirlik | İzole PostgreSQL, enjekte edilen saat, eşzamanlı rezervasyon/kabul, tekrar istekleri, kapasite ve süre çakışmaları, rol/sahiplik kontrolleri, CI ve gerçek API kullanan mobil testler | Teklif boyunca kapasite ayırma kuralı yanıt bekliyor; doğrudan rezervasyon/teklif yarışının nihai beklentisi bu kararla tamamlanacak. |
+| 3. İşletme paneli | Ayrı panel, işletme seçimi, günlük/haftalık randevu listesi, mekân/hizmet düzenleme ve görünürlük, çalışma saati ekleme/silme, kurulum adımları | Mevcut randevuyla çakışan saat/tatil değişikliği kuralı yanıt bekliyor. Tarih istisnaları modeli, migration ve arayüzü henüz uygulanmadı. |
+| 4. Bekleme listesi | Ayrı ekran, Türkçe durumlar, sunucu bitiş zamanına göre sayaç, süre dolunca yeniden doğrulama, tüm sayfalarda teklif/okunmamış durumu, SSE heartbeat/yeniden bağlanma ve yedek yenileme | E-posta doğrulama/tercih ve teslimat akışı sonraki adımdır; dış bildirim sağlayıcısı kurulmadı. |
+| 5. Pilot hazırlık | Flyway V1, temiz kurulum ve mevcut kayıtları koruyan baseline testi, ortam API adresi, prod secret/CORS ayarları, giriş sınırı, sağlık/hata kayıtları, otomatik dump/restore kontrolü, ayrı demo | Gerçek canlı ortam, HTTPS proxy/domain, secret ve yedek saklama ayarları kurulmadı; sınırlı gerçek pilot başlamadı. |
+
+Doğrulamalar: 16 backend testi, 3 mobil Chromium akışı ve frontend TypeScript/üretim derlemesi. Yedek dönüşünde altı tablonun kayıt sayısı ve içerik checksum'ları karşılaştırılır. Demo açılışı, müşteri girişi ve örnek işletme/hizmetler ayrıca denendi. Bunlar bütün alan uç durumlarının tamamlandığı anlamına gelmez.
+
+GitHub CI'da Linux Maven Wrapper çalıştırma izni hatası düzeltildi; `.gitattributes` LF düzenini korur. Görev dallarında uzak kontroller geçmeden `main` birleşimi yapılmaz. Aşağıdaki özgün kapsam ve tamamlanma ölçütleri, açık işler bitene kadar korunur.
 
 ## Hedef
 
