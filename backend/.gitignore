@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Local Maven cache and JVM diagnostics
+.m2/
+*.class
+*.hprof
+hs_err_pid*
+replay_pid*

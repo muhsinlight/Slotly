@@ -1,5 +1,14 @@
-# Vue 3 + TypeScript + Vite
+﻿# Slotly web arayüzü
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Vue 3, TypeScript ve Vite ile geliştirilmiştir. Genel kurulum için [ana README](../README.md), testler için [geliştirme rehberi](../docs/DEVELOPMENT.md).
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+```sh
+npm ci
+npm run dev
+```
+
+API varsayılan olarak `http://localhost:8080` adresinde beklenir. Farklı adres için [.env.example](.env.example) içindeki `VITE_API_BASE_URL` değerini kullanın; `/api` uygulama tarafından eklenir.
+
+- `npm run build`: TypeScript kontrolü ve üretim derlemesi.
+- `npm run preview`: Üretim derlemesini yerelde önizleme.
+- `npm run test:e2e`: Hazır test ortamına karşı Playwright testleri. Ortamı da başlatmak için kökteki `test-browser.ps1` betiğini kullanın.
