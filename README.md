@@ -80,6 +80,8 @@ npm run dev
 
 Vite `http://localhost:5173` adresinde açılır. Tarayıcıda bu adresi ziyaret edin. Arayüz API'ye `http://localhost:8080/api` üzerinden bağlanır; API önce çalışıyor olmalıdır.
 
+Farklı API ortamları için `frontend/.env.example` örneğindeki `VITE_API_BASE_URL` değerini derlemeden önce ayarlayın. Bu değer API origin'idir; `/api` uygulama tarafından eklenir. Vite değişkenleri derlemeye gömülür, sır içermemelidir.
+
 PostgreSQL, API ve arayüzü tek komutla başlatmak için proje kökünde çalıştırın:
 
 ```powershell
@@ -110,6 +112,10 @@ Backend aşağıdaki değerleri süreç ortam değişkenlerinden okur. Varsayıl
 | `DATABASE_PASSWORD` | `slotly` | Yerel Compose parolası. Değiştirirseniz `compose.yaml` içindeki PostgreSQL parolasıyla eşleştirin. |
 | `JWT_SECRET` | Yerel geliştirme anahtarı | JWT imzalama anahtarı. Yerel varsayılanı canlı ortamda kullanmayın; dış ortamda gizli, güçlü ve en az 32 baytlık bir anahtar sağlayın. |
 | `BUSINESS_TIME_ZONE` | `Europe/Istanbul` | Çalışma saatlerinin yorumlandığı saat dilimi |
+| `CORS_ALLOWED_ORIGINS` | Yerel Vite adresleri | Virgülle ayrılmış izinli arayüz origin'leri; canlı profilde açıkça ayarlanmalıdır. |
+| `LOGIN_RATE_LIMIT_ATTEMPTS` | `10` | IP başına pencere içinde izin verilen giriş isteği sayısı. |
+| `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `60` | Giriş sınırının saniye cinsinden penceresi. |
+| `SPRING_PROFILES_ACTIVE` | — | Canlı ayarlar için `prod`; eksik DB/CORS/JWT değerlerinde başlangıcı başarısız yapar. |
 
 PowerShell'de yalnızca o terminal oturumu için ortam değişkeni ayarlama örneği:
 
@@ -119,13 +125,16 @@ cd backend
 .\mvnw.cmd spring-boot:run
 ```
 
-Hibernate, uygulama başlarken entity'lere göre veritabanı şemasını `ddl-auto=update` ile günceller. Şu an projede Flyway veya Liquibase migration akışı yoktur.
+Şema Flyway tarafından yönetilir; Hibernate yalnızca şemayı doğrular. `V1__create_slotly_schema.sql` temiz veritabanı kurar. İlk geçişte Flyway mevcut ve boş olmayan Hibernate veritabanını sürüm 1'de baseline alır; mevcut kayıtları yeniden oluşturmadan korur. Sonraki şema değişikliklerini yeni sürümlü migration'larla ekleyin.
+
+Canlı profil için örnek değişkenler [backend/.env.example](backend/.env.example) içindedir. Dosya Spring tarafından otomatik yüklenmez; dağıtım ortamında değerleri süreç ortamına veya secret yöneticisine tanımlayın. `prod` profilini yalnızca HTTPS sonlandıran, dışarıdan doğrudan erişilemeyen ters proxy arkasında çalıştırın. JWT anahtarı en az 32 bayt rastgele değer olmalı; CORS listesi yalnızca gerçek arayüz adreslerini içermelidir. Giriş sınırı uygulama belleğinde ve sunucu başına tutulur; birden fazla API kopyasında ortak sınırlayıcı/ters proxy katmanı olmadan küresel sınır oluşturmaz.
 
 ## Kimlik doğrulama ve yanıt biçimi
 
 - Kayıt alanları: `username` (en fazla 40), `password` (10–100), `firstName` ve `lastName` (en fazla 80), `role` (`OWNER` veya `CUSTOMER`).
 - Korumalı uçlara `Authorization: Bearer <accessToken>` başlığı ekleyin. JWT ömrü 3600 saniyedir.
 - Oturum sunucuda tutulmaz; cookie veya token yenileme ucu yoktur. Web arayüzü token'ı `localStorage` içindeki `slotly-token` anahtarında saklar. Çıkış token'ı tarayıcıdan siler.
+- Pilot sürüm mevcut bir saatlik Bearer oturumunu kullanır. Süresi dolan token veya API 401 yanıtında oturum temizlenir ve uygulama içi dönüş adresiyle tekrar giriş istenir. Cookie ile kimlik doğrulama kullanılmadığından CSRF koruması kapalıdır; cookie/refresh değişikliği bu sözleşme ve CSRF korumasıyla birlikte ele alınmalıdır.
 - JSON yanıtları `status`, `message`, `data` ve `timestamp` alanlarını içerir. `status`, HTTP durum kodudur. `204 No Content` yanıtlarında gövde yoktur.
 - CORS için `http://localhost:5173` ve `http://127.0.0.1:5173` izinlidir.
 
@@ -214,11 +223,11 @@ Aşağıdaki uçlar yalnızca ilgili mekânın sahibi olan `OWNER` rolüyle kull
 
 Backend testleri:
 
-Test uygulama bağlamını başlatır ve varsayılan PostgreSQL ayarlarını kullanır; testten önce PostgreSQL'i yukarıdaki Compose adımıyla çalıştırın.
+Backend testleri geçici PostgreSQL 17 konteynerinde çalışır. Ayrı test veritabanı, 5433 portu ve geçici disk kullanılır; geliştirme veritabanına dokunulmaz.
 
 ```powershell
 cd backend
-.\mvnw.cmd test
+.\test-with-postgres.ps1
 ```
 
 Frontend TypeScript kontrolü ve üretim derlemesi:
@@ -227,6 +236,27 @@ Frontend TypeScript kontrolü ve üretim derlemesi:
 cd frontend
 npm run build
 ```
+
+`.github/workflows/ci.yml`, tüm dallara push ve `main` hedefli pull requestlerde backend doğrulamasını temiz PostgreSQL servisiyle, frontend tür kontrolü ve üretim derlemesini çalıştırır. Görev dalları yalnız kontroller geçtikten sonra `main` ile birleştirilir.
+
+### Yedek ve geri yükleme
+
+Canlı PostgreSQL veritabanını düzenli yedekleyin, şifreli kopyayı veritabanı sunucusunun dışında tutun ve pilot öncesinde ayrı bir veritabanına geri yükleyerek deneyin. Geri yüklemeyi canlı veritabanının üzerine test etmeyin.
+
+```powershell
+$env:PGHOST = 'localhost'
+$env:PGPORT = '5432'
+$env:PGUSER = 'slotly_backup'
+$env:PGPASSWORD = '<secret-from-your-secret-store>'
+$env:PGDATABASE = 'slotly'
+pg_dump --format=custom --no-owner --file slotly-backup.dump
+
+$env:PGDATABASE = 'slotly_restore_check'
+createdb --owner=$env:PGUSER $env:PGDATABASE
+pg_restore --no-owner --dbname=$env:PGDATABASE slotly-backup.dump
+```
+
+Yedek saklama ve şifrelemeyi barındırma ortamının secret/yedek hizmetinde ayarlayın. Yalnızca dump alabilmek geri yüklemenin çalıştığını kanıtlamaz.
 
 API uçlarının CLI ile denenmiş akışları için [API-CLI-TEST-REPORT.md](API-CLI-TEST-REPORT.md) dosyasına bakın.
 

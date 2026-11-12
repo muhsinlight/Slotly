@@ -1,6 +1,8 @@
 package com.slotly.api.exception;
 
 import com.slotly.api.response.ApiResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,7 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidation(
@@ -55,6 +58,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleDatabase(
             DataAccessException exception
     ) {
+        logger.error("Database operation failed", exception);
         return response(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "A database operation failed",
@@ -77,6 +81,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleUnexpected(
             Exception exception
     ) {
+        logger.error("Unexpected request failure", exception);
         return response(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred",
