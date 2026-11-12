@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
-$composeFile = Join-Path $PSScriptRoot 'compose.browser-test.yaml'
+$repositoryRoot = Split-Path -Parent $PSScriptRoot
+$composeFile = Join-Path $repositoryRoot 'docker/compose.browser-test.yaml'
 
 docker compose -f $composeFile up -d --wait
 if ($LASTEXITCODE -ne 0) {
@@ -7,7 +8,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 try {
-    Push-Location (Join-Path $PSScriptRoot 'backend')
+    Push-Location (Join-Path $repositoryRoot 'backend')
     try {
         & .\mvnw.cmd --batch-mode '-DskipTests' package
         if ($LASTEXITCODE -ne 0) {
@@ -18,7 +19,7 @@ try {
         Pop-Location
     }
 
-    Push-Location (Join-Path $PSScriptRoot 'frontend')
+    Push-Location (Join-Path $repositoryRoot 'frontend')
     try {
         & npm.cmd run test:e2e
         if ($LASTEXITCODE -ne 0) {

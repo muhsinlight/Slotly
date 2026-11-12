@@ -63,6 +63,7 @@ Thumbs.db
 /tmp/
 /temp/
 /check.ps1
+/scripts/check.ps1
 *.tmp
 *.temp
 *.swp

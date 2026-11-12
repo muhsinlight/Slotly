@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$composeFile = Join-Path $repositoryRoot 'compose.integration-test.yaml'
+$composeFile = Join-Path $repositoryRoot 'docker/compose.integration-test.yaml'
 
 docker compose -f $composeFile up -d --wait postgres-test
 if ($LASTEXITCODE -ne 0) {

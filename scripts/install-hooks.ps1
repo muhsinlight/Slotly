@@ -1,9 +1,9 @@
 $ErrorActionPreference = 'Stop'
 
-Push-Location $PSScriptRoot
+Push-Location (Split-Path -Parent $PSScriptRoot)
 try {
     if (!(Test-Path -LiteralPath (Join-Path $PSScriptRoot 'check.ps1') -PathType Leaf)) {
-        throw 'Local check.ps1 is missing. Copy it to the repository root before installing hooks.'
+        throw 'Local scripts/check.ps1 is missing. Copy it before installing hooks.'
     }
 
     $existingHooksPath = & git config --get core.hooksPath

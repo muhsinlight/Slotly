@@ -22,7 +22,7 @@ Bir randevu iptal edildiğinde boşalan saat, bekleme listesindeki sıradaki mü
 JDK 25, Node.js 24+, Docker Compose ve Git gerekir. Docker çalışırken depo kökünde:
 
 ```sh
-node dev.mjs
+node scripts/dev.mjs
 ```
 
 Komut yerel PostgreSQL’i başlatır, gerektiğinde frontend bağımlılıklarını kurar ve API ile web arayüzünü çalıştırır.
@@ -48,7 +48,9 @@ Arayüzden işletme sahibi hesabı oluşturun; mekân, çalışma saatleri ve hi
 backend/       Spring Boot API, migration’lar ve testler
 frontend/      Vue uygulaması ve tarayıcı testleri
 docs/          Kurulum, API ve geliştirme rehberleri
+docker/        Ayrı demo ve test veritabanları
+scripts/       Geliştirme, test ve Git kancası araçları
 .github/       CI iş akışları
 ```
 
-`compose.yaml` yerel geliştirme veritabanını tanımlar. `compose.demo.yaml`, `compose.integration-test.yaml` ve `compose.browser-test.yaml` demo ve test ortamlarını ayrı veritabanlarında çalıştırır. Bu dosyalar tekrar kurulabilir geliştirme ortamının parçasıdır.
+`compose.yaml` yerel geliştirme veritabanını tanımlar. `docker/compose.demo.yaml`, `docker/compose.integration-test.yaml` ve `docker/compose.browser-test.yaml` demo ve test ortamlarını ayrı veritabanlarında çalıştırır. Bu dosyalar tekrar kurulabilir geliştirme ortamının parçasıdır.

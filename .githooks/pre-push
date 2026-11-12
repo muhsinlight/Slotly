@@ -26,9 +26,9 @@ if [ -n "$(git status --porcelain)" ]; then
     exit 1
 fi
 
-if [ ! -f "$root/check.ps1" ]; then
-    echo 'Push blocked: local check.ps1 is missing. Restore it before pushing.' >&2
+if [ ! -f "$root/scripts/check.ps1" ]; then
+    echo 'Push blocked: local scripts/check.ps1 is missing. Restore it before pushing.' >&2
     exit 1
 fi
 
-exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/check.ps1"
+exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/scripts/check.ps1"
