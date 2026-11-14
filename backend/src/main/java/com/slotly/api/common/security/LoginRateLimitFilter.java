@@ -1,4 +1,4 @@
-package com.slotly.api.module.auth.security;
+package com.slotly.api.common.security;
 
 import com.slotly.api.common.response.ApiResponse;
 import jakarta.servlet.FilterChain;

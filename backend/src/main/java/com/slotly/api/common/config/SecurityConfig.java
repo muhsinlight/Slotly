@@ -1,7 +1,7 @@
-package com.slotly.api.config;
+package com.slotly.api.common.config;
 
-import com.slotly.api.module.auth.security.JwtAuthenticationFilter;
-import com.slotly.api.module.auth.security.LoginRateLimitFilter;
+import com.slotly.api.common.security.JwtAuthenticationFilter;
+import com.slotly.api.common.security.LoginRateLimitFilter;
 import com.slotly.api.common.response.ApiResponse;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;

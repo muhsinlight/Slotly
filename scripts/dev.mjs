@@ -270,8 +270,7 @@ async function main() {
         ? mavenOptions
         : `${mavenOptions} -Duser.home=${process.env.USERPROFILE || process.env.HOME}`.trim(),
     }
-    runCommand(mavenCommand, ['--batch-mode', '-DskipTests', 'install'], { cwd: backendDirectory, env })
-    launch('backend', mavenCommand, ['-f', 'app/pom.xml', 'spring-boot:run'], backendDirectory, env)
+    launch('backend', mavenCommand, ['spring-boot:run'], backendDirectory, env)
   } else {
     console.log('[dev] Backend is already responding.')
   }

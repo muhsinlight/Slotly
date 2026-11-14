@@ -1,4 +1,4 @@
-package com.slotly.api.config;
+package com.slotly.api.common.config;
 
 import com.slotly.api.module.place.entity.BusinessHour;
 import com.slotly.api.module.place.entity.Offering;

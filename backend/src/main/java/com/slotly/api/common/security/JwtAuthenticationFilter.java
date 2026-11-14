@@ -1,4 +1,4 @@
-package com.slotly.api.module.auth.security;
+package com.slotly.api.common.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
