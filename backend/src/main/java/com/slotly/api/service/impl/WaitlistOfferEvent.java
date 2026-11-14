@@ -1,4 +1,4 @@
-package com.slotly.api.service;
+package com.slotly.api.service.impl;
 
 import java.time.Instant;
 import java.util.UUID;
