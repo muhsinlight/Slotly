@@ -21,7 +21,7 @@ export default defineConfig({
   projects: [{ name: 'mobile-chromium', use: { ...devices['Pixel 7'] } }],
   webServer: [
     {
-      command: 'java -jar ../backend/target/slotly-api-0.0.1-SNAPSHOT.jar',
+      command: 'java -jar ../backend/app/target/slotly-api-0.0.1-SNAPSHOT.jar',
       url: 'http://127.0.0.1:8081/actuator/health',
       reuseExistingServer: false,
       timeout: 120_000,

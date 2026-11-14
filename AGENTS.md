@@ -8,9 +8,9 @@
 - Katmanlar arası davranış ve API sözleşmelerini değiştirirken frontend, backend ve veritabanı etkilerini birlikte değerlendir; mevcut teknoloji seçimlerini gerekçe olmadan değiştirme.
 
 ## Hızlı gezinme
-- Backend Java kaynakları: `backend/src/main/java/com/slotly/api/`; controller, service, repository, entity, dto, security ve config paketleri katmanlara göre ayrıdır.
-- Backend ayarları ve migration'lar: `backend/src/main/resources/`.
-- Backend testleri: `backend/src/test/`; komutlar için `backend/mvnw.cmd` ve `backend/pom.xml`.
+- Backend Java kaynakları: `backend/module/java/com/slotly/api/module/`; user, auth, place, booking ve waitlist kendi katmanlarını içerir. Ortak altyapı `backend/common/java/`, başlangıç ve ayarlar `backend/app/java/` altındadır.
+- Backend ayarları ve migration'lar: `backend/app/resources/`.
+- Backend testleri: `backend/app/test/`; komutlar için `backend/mvnw.cmd` ve `backend/pom.xml`.
 - Frontend kaynakları: `frontend/src/`; ana ekran `App.vue`, tekrar kullanılan arayüz parçaları `components/` altında.
 - Yardımcı komutlar: `scripts/`; demo ve test Compose dosyaları: `docker/`. Yerel push kontrolü: Git dışındaki `scripts/check.ps1`.
 - API ve alan davranışlarının yaşayan özeti: `README.md`; yerel PostgreSQL tanımı: `compose.yaml`.

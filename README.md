@@ -45,7 +45,10 @@ Arayüzden işletme sahibi hesabı oluşturun; mekân, çalışma saatleri ve hi
 ## Proje yapısı
 
 ```text
-backend/       Spring Boot API, migration’lar ve testler
+backend/
+  common/      Ortak yanıt, hata yönetimi ve saat yapılandırması
+  module/      user, auth, place, booking ve waitlist alan kodları
+  app/         Spring Boot başlangıcı, ayarlar, migration ve testler
 frontend/      Vue uygulaması ve tarayıcı testleri
 docs/          Kurulum, API ve geliştirme rehberleri
 docker/        Ayrı demo ve test veritabanları
@@ -54,3 +57,5 @@ scripts/       Geliştirme, test ve Git kancası araçları
 ```
 
 `compose.yaml` yerel geliştirme veritabanını tanımlar. `docker/compose.demo.yaml`, `docker/compose.integration-test.yaml` ve `docker/compose.browser-test.yaml` demo ve test ortamlarını ayrı veritabanlarında çalıştırır. Bu dosyalar tekrar kurulabilir geliştirme ortamının parçasıdır.
+
+Backend Maven modülleri `app → module → common` yönünde bağımlıdır. Java kaynakları `java/`, ayarlar `resources/`, testler `test/` altındadır; backend’de `src/` kullanılmaz. Alanlar tek `module` artifact’i içinde paketlere ayrılır; mevcut alan ilişkileri korunur.

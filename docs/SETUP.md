@@ -1,4 +1,4 @@
-﻿# Kurulum ve yapılandırma
+# Kurulum ve yapılandırma
 
 [← Slotly](../README.md)
 
@@ -30,14 +30,16 @@ Yeni bir terminal açıp proje kökünden çalıştırın:
 
 ```powershell
 cd backend
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd -DskipTests install
+.\mvnw.cmd -f app/pom.xml spring-boot:run
 ```
 
 macOS/Linux:
 
 ```bash
 cd backend
-./mvnw spring-boot:run
+./mvnw -DskipTests install
+./mvnw -f app/pom.xml spring-boot:run
 ```
 
 İlk çalıştırmada Maven bağımlılıkları indirir. API varsayılan olarak `http://localhost:8080` adresinde açılır. Sağlık kontrolü: `http://localhost:8080/actuator/health`.
@@ -83,7 +85,8 @@ Demo kendi `slotly_demo` veritabanı, 5435 portu ve `slotly-demo` Compose projes
 ```powershell
 docker compose -f docker/compose.demo.yaml up -d --wait
 cd backend
-.\mvnw.cmd spring-boot:run '-Dspring-boot.run.profiles=demo'
+.\mvnw.cmd -DskipTests install
+.\mvnw.cmd -f app/pom.xml spring-boot:run '-Dspring-boot.run.profiles=demo'
 ```
 
 İkinci terminalde arayüz:
@@ -116,7 +119,8 @@ PowerShell'de yalnızca o terminal oturumu için ortam değişkeni ayarlama örn
 ```powershell
 $env:JWT_SECRET = 'yerel-gelistirme-icin-guclu-ve-ozel-bir-anahtar'
 cd backend
-.\mvnw.cmd spring-boot:run
+.\mvnw.cmd -DskipTests install
+.\mvnw.cmd -f app/pom.xml spring-boot:run
 ```
 
 Şema Flyway tarafından yönetilir; Hibernate yalnızca şemayı doğrular. `V1__create_slotly_schema.sql` temiz veritabanı kurar. İlk geçişte Flyway mevcut ve boş olmayan Hibernate veritabanını sürüm 1'de baseline alır; mevcut kayıtları yeniden oluşturmadan korur. Sonraki şema değişikliklerini yeni sürümlü migration'larla ekleyin.
