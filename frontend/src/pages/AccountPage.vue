@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
+import NotificationSettings from '../components/NotificationSettings.vue'
 import { request } from '../lib/api'
 
 const email = ref('')
@@ -48,6 +49,7 @@ async function save(): Promise<void> {
     </form>
     <p v-if="message" role="status">{{ message }}</p>
     <p v-if="error" role="alert">{{ error }}</p>
+    <NotificationSettings :verified="verified" />
   </main>
 </template>
 

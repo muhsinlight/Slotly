@@ -125,7 +125,7 @@ Her satır ayrı görev dalında uygulanır; görev büyürse bağımsız alt g�
 | 2 | Tatil ve özel çalışma saatleri | Uygulandı; migration, API, işletme arayüzü ve rezervasyon engeli birlikte doğrulanır. |
 | 3 | E-posta doğrulama | Uygulandı: hesap ekranı, adres ekleme, 30 dakikalık tek kullanımlık doğrulama, yeniden gönderim sınırı ve kalıcı gönderim kuyruğu. Sağlayıcı seçimi ve gerçek gönderim bekliyor. |
 | 4 | Şifre sıfırlama | Uygulandı: doğrulanmış adres, 15 dakikalık tek kullanımlık bağlantı, genel yanıt, istek sınırı, eski oturumların iptali ve frontend kurtarma ekranları. Gerçek gönderim bekliyor. |
-| 5 | Teklif bildirimi | Doğrulanmış adres ve kullanıcı tercihi; teslimat/yeniden deneme ve mükerrer gönderim kontrolü. Gerçek dış gönderim ayrıca yetkilendirilir. |
+| 5 | Teklif bildirimi | Altyapı uygulandı: doğrulanmış adres, tercih ekranı, tekilleştirilmiş outbox, geçerlilik kontrolü, yeniden deneme ve bildirim geçmişi. Sağlayıcı adaptörü ve gerçek dış gönderim bekliyor. |
 | 6 | Randevu hatırlatması | Bildirim altyapısı sonrası; zamanlama, iptal/değişiklik ve mükerrer gönderim testleri. |
 | 7 | Randevu yeniden planlama | Eski randevu ile yeni kapasite atomik değişir; hata durumunda mevcut randevu korunur. İptal edilen saatin sıra davranışı kararlaştırılır. |
 | 8 | Tamamlandı / gelmedi durumları | Yetkili işletme işlemi, izin verilen durum geçişleri ve müşteri/işletme görünümü doğrulanır. |

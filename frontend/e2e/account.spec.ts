@@ -30,6 +30,8 @@ test('customer manages email verification from account settings', async ({ page,
   await page.getByRole('button', { name: /^Giriş yap/ }).click()
   await page.getByRole('link', { name: 'Hesap ayarları' }).click()
   await expect(page.getByRole('heading', { name: 'Hesap ayarları' })).toBeVisible()
+  await expect(page.getByRole('checkbox', { name: 'Boşalan saat tekliflerini e-posta ile al' })).toBeDisabled()
+  await expect(page.getByRole('heading', { name: 'Son bildirimler' })).toBeVisible()
   await page.getByLabel('E-posta', { exact: true }).fill(username + '@example.test')
   await page.getByRole('button', { name: 'Kaydet ve doğrulama bağlantısı iste' }).click()
   await expect(page.getByRole('status')).toContainText('gönderim kuyruğuna alındı')
