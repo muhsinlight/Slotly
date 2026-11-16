@@ -21,5 +21,6 @@
 - Mevcut yapıya uygun, kapsamı sınırlı çözümler seç. Ürün akışı veya alan kuralı belirsizse etkilenen kodu değiştirmeden önce sor.
 - Java kodunu tutarlı girintile ve okunaklı biçimlendir: alanları, anotasyonları ve metotları sıkıştırıp aynı satıra yığma; metot gövdelerini ve atamaları ayrı satırlarda yaz. Yakındaki `User.java` gibi mevcut biçimi izle.
 - Kod değişikliklerinde ilgili doğrulamaları çalıştır: backend için Maven Wrapper, frontend için `npm` scriptleri. PostgreSQL gerektiren kontrollerde veritabanının çalışır olup olmadığını belirt.
+- Test, derleme ve push çıktılarını varsayılan olarak terminalde tut; proje köküne geçici log yazma. Dosya gerekiyorsa Git dışında tutulan `tmp/verification/` dizininde işlem başına sabit ad kullan (`backend.log`, `build.log`, `browser.log`, `api.log`, `push.log`); her çalıştırmada üzerine yaz, özellik veya tarih ekleyerek dosya biriktirme. Uygulamanın döndürülen `logs/slotly.log` kaydı bu geçici çıktılardan ayrıdır.
 - Tamamlanan ve doğrulanan her bağımsız işi Conventional Commits biçiminde commit et; bitmiş değişiklikleri commit edilmeden bırakma.
 - Sonuçta değişen davranışı, çalıştırılan kontrolleri ve varsa çözülemeyen engelleri kısa biçimde raporla.
