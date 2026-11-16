@@ -1,10 +1,10 @@
 package com.slotly.api;
 
-import com.slotly.api.dto.request.LoginRequest;
-import com.slotly.api.entity.User;
-import com.slotly.api.entity.UserRole;
-import com.slotly.api.repository.UserRepository;
-import com.slotly.api.service.AuthService;
+import com.slotly.api.module.auth.dto.request.LoginRequest;
+import com.slotly.api.module.user.entity.User;
+import com.slotly.api.module.user.entity.UserRole;
+import com.slotly.api.module.user.repository.UserRepository;
+import com.slotly.api.module.auth.service.AuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

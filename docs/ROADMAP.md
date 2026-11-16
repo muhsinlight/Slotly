@@ -120,7 +120,7 @@ Backend işlevlerinin bulunması, bütün uç durumların otomatik testlerle do�
 - [README](../README.md): mevcut API ve alan kuralları.
 - [HomePage.vue](../frontend/src/pages/HomePage.vue): tek ekranda toplanmış akışlar ve periyodik yenileme.
 - [router.ts](../frontend/src/router.ts), [auth.ts](../frontend/src/composables/auth.ts), [api.ts](../frontend/src/lib/api.ts): mevcut rotalar ve oturum/istek yönetimi.
-- [BookingService.java](../backend/src/main/java/com/slotly/api/service/BookingService.java): kapasite, FIFO ve teklif davranışı.
+- [BookingService.java](../backend/src/main/java/com/slotly/api/module/booking/service/BookingService.java): kapasite, FIFO ve teklif davranışı.
 - [application.properties](../backend/src/main/resources/application.properties): mevcut Hibernate schema update yaklaşımı.
 - [SlotlyApiApplicationTests.java](../backend/src/test/java/com/slotly/api/SlotlyApiApplicationTests.java): mevcut otomatik test kapsamı.
 - [Cal.com](https://cal.com/) ve [SavvyCal](https://savvycal.com/): takvim ve rezervasyon akışını görünür kılan ürün sunumu örnekleri. Bu örnekler Slotly'nin alan kurallarını belirlemez.

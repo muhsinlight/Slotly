@@ -45,7 +45,12 @@ Arayüzden işletme sahibi hesabı oluşturun; mekân, çalışma saatleri ve hi
 ## Proje yapısı
 
 ```text
-backend/       Spring Boot API, migration’lar ve testler
+backend/       Tek Spring Boot uygulaması
+  src/main/java/com/slotly/api/
+    common/    Ortak ayarlar, güvenlik, yanıt ve hata yönetimi
+    module/    user, auth, place, booking ve waitlist alanları
+  src/main/resources/  Ayarlar ve migration dosyaları
+  src/test/    Backend testleri
 frontend/      Vue uygulaması ve tarayıcı testleri
 docs/          Kurulum, API ve geliştirme rehberleri
 docker/        Ayrı demo ve test veritabanları
@@ -54,3 +59,5 @@ scripts/       Geliştirme, test ve Git kancası araçları
 ```
 
 `compose.yaml` yerel geliştirme veritabanını tanımlar. `docker/compose.demo.yaml`, `docker/compose.integration-test.yaml` ve `docker/compose.browser-test.yaml` demo ve test ortamlarını ayrı veritabanlarında çalıştırır. Bu dosyalar tekrar kurulabilir geliştirme ortamının parçasıdır.
+
+`common` ve `module` aynı uygulamanın Java paketleridir; ayrı Maven projeleri değildir. Her alan kendi controller, DTO, entity, repository ve service katmanlarını içerir. Paket düzeni [aviation-platform örneğini](https://github.com/Mervearslan1/aviation-platform/tree/main/src/main/java/com/aviation/platform) izler; Slotly’nin mevcut sürümleri ve alan davranışları korunur.

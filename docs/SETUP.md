@@ -1,4 +1,4 @@
-﻿# Kurulum ve yapılandırma
+# Kurulum ve yapılandırma
 
 [← Slotly](../README.md)
 
