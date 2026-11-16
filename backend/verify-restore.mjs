@@ -12,7 +12,7 @@ function run(...args) {
 }
 
 const restored = 'slotly_restore_test'
-const tables = ['app_users', 'places', 'offerings', 'business_hours', 'appointments', 'waitlist_entries', 'calendar_exceptions']
+const tables = ['app_users', 'places', 'offerings', 'business_hours', 'appointments', 'waitlist_entries', 'calendar_exceptions', 'account_emails', 'account_tokens', 'email_outbox']
 run('pg_dump', '-U', 'slotly', '-d', 'slotly_test', '--format=custom', '--no-owner', '--file=/tmp/slotly-check.dump')
 run('createdb', '-U', 'slotly', restored)
 try {

@@ -7,10 +7,14 @@ import PlacePage from './pages/PlacePage.vue'
 import AppointmentsPage from './pages/AppointmentsPage.vue'
 import OwnerDashboardPage from './pages/OwnerDashboardPage.vue'
 import WaitlistPage from './pages/WaitlistPage.vue'
+import AccountPage from './pages/AccountPage.vue'
+import VerifyEmailPage from './pages/VerifyEmailPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    { path: '/account', component: AccountPage, meta: { requiresAuth: true } },
+    { path: '/verify-email', component: VerifyEmailPage },
     { path: '/', name: 'home', component: HomePage },
     { path: '/login', name: 'login', component: LoginPage },
     { path: '/register', name: 'register', component: RegisterPage },
