@@ -85,3 +85,10 @@ docker compose down
 
 Bu komut veritabanı volume'unu korur. Yerel veritabanını ve içindeki verileri de silmek için `docker compose down -v` kullanılır.
 
+
+## Backend logları
+
+Konsol kısa hata izi gösterir; tam stack trace çalışma dizinine göre logs/slotly.log dosyasına yazılır. Beklenmeyen API ve veritabanı hatalarında köşeli parantezdeki UUID ile dosyada arama yapılabilir. API yanıt sözleşmesi değişmez. Başlangıç hataları da aynı konsol/dosya düzenini kullanır.
+
+Dosyalar günlük veya 10 MB olduğunda döner; 14 günlük geçmiş ve toplam 200 MB sınırı uygulanır. Dizin slotly.logging.directory ile değiştirilebilir. Paket ayrıntısı gerektiğinde logging.level.org.springframework=DEBUG gibi bir ayarla geçici açılabilir. Log dosyaları teknik hata mesajları içerebilir; erişimi sınırlandırın.
+

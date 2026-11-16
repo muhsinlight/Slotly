@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -59,7 +60,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleDatabase(
             DataAccessException exception
     ) {
-        logger.error("Database operation failed", exception);
+        logFailure("Database operation failed", exception);
         return response(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "A database operation failed",
@@ -84,7 +85,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleUnexpected(
             Exception exception
     ) {
-        logger.error("Unexpected request failure", exception);
+        logFailure("Unexpected request failure", exception);
         return response(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred",
@@ -107,6 +108,11 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(status).body(body);
+    }
+
+    private void logFailure(String message, Exception exception) {
+        String errorId = UUID.randomUUID().toString();
+        logger.error("[{}] {} | details: slotly.log", errorId, message, exception);
     }
 
     private String codeFor(HttpStatus status) {
