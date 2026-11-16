@@ -38,7 +38,8 @@ public class GlobalExceptionHandler {
         return response(
                 HttpStatus.BAD_REQUEST,
                 "Request validation failed",
-                fieldErrors
+                fieldErrors,
+                "VALIDATION_ERROR"
         );
     }
 
@@ -51,7 +52,7 @@ public class GlobalExceptionHandler {
                 ? status.getReasonPhrase()
                 : exception.getReason();
 
-        return response(status, message, null);
+        return response(status, message, null, codeFor(status));
     }
 
     @ExceptionHandler(DataAccessException.class)
@@ -62,7 +63,8 @@ public class GlobalExceptionHandler {
         return response(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "A database operation failed",
-                null
+                null,
+                "DATABASE_ERROR"
         );
     }
 
@@ -73,7 +75,8 @@ public class GlobalExceptionHandler {
         return response(
                 HttpStatus.FORBIDDEN,
                 "You do not have permission for this operation",
-                null
+                null,
+                "FORBIDDEN"
         );
     }
 
@@ -85,21 +88,36 @@ public class GlobalExceptionHandler {
         return response(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred",
-                null
+                null,
+                "INTERNAL_ERROR"
         );
     }
 
     private <T> ResponseEntity<ApiResponse<T>> response(
             HttpStatus status,
             String message,
-            T data
+            T data,
+            String code
     ) {
         ApiResponse<T> body = ApiResponse.<T>builder()
                 .status(status)
                 .message(message)
+                .code(code)
                 .data(data)
                 .build();
 
         return ResponseEntity.status(status).body(body);
+    }
+
+    private String codeFor(HttpStatus status) {
+        return switch (status) {
+            case BAD_REQUEST -> "BAD_REQUEST";
+            case UNAUTHORIZED -> "UNAUTHORIZED";
+            case FORBIDDEN -> "FORBIDDEN";
+            case NOT_FOUND -> "NOT_FOUND";
+            case CONFLICT -> "CONFLICT";
+            case GONE -> "GONE";
+            default -> status.is5xxServerError() ? "INTERNAL_ERROR" : "REQUEST_ERROR";
+        };
     }
 }

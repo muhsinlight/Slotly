@@ -7,12 +7,14 @@ import org.springframework.http.ResponseEntity;
 public class ApiResponse<T> {
     private final int status;
     private final String message;
+    private final String code;
     private final T data;
     private final Instant timestamp;
 
     private ApiResponse(Builder<T> builder) {
         this.status = builder.status.value();
         this.message = builder.message;
+        this.code = builder.code;
         this.data = builder.data;
         this.timestamp = builder.timestamp;
     }
@@ -36,6 +38,10 @@ public class ApiResponse<T> {
         return message;
     }
 
+    public String getCode() {
+        return code;
+    }
+
     public T getData() {
         return data;
     }
@@ -46,12 +52,18 @@ public class ApiResponse<T> {
 
     public static class Builder<T> {
         private String message;
+        private String code;
         private T data;
         private Instant timestamp = Instant.now();
         private HttpStatus status = HttpStatus.OK;
 
         public Builder<T> message(String message) {
             this.message = message;
+            return this;
+        }
+
+        public Builder<T> code(String code) {
+            this.code = code;
             return this;
         }
 
