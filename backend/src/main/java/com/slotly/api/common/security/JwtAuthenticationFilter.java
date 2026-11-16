@@ -30,9 +30,15 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final SecretKey signingKey;
     private final ObjectMapper objectMapper;
+    private final com.slotly.api.module.user.repository.UserRepository users;
 
-    public JwtAuthenticationFilter(@Value("${slotly.jwt.secret}") String secret, ObjectMapper objectMapper) {
+    public JwtAuthenticationFilter(
+        @Value("${slotly.jwt.secret}") String secret,
+        ObjectMapper objectMapper,
+        com.slotly.api.module.user.repository.UserRepository users
+    ) {
         this.objectMapper = objectMapper;
+        this.users = users;
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 32) {
             throw new IllegalArgumentException("JWT secret must be at least 32 bytes");
@@ -63,6 +69,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 if (subject == null || !isSupportedRole(role)) {
                     throw new JwtException("Token claims are invalid");
+                }
+                var user = users.findById(java.util.UUID.fromString(subject))
+                    .orElseThrow(() -> new JwtException("Account no longer exists"));
+                Number version = claims.get("version", Number.class);
+                if (user.getAuthVersion() != (version == null ? 0 : version.longValue())) {
+                    throw new JwtException("Session has been revoked");
                 }
 
                 var authentication = new UsernamePasswordAuthenticationToken(

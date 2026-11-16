@@ -97,13 +97,13 @@ public class AccountEmailService {
         }
     }
 
-    private void lockUser(UUID userId) {
+    void lockUser(UUID userId) {
         if (jdbc.queryForList("SELECT id FROM app_users WHERE id = ? FOR UPDATE", userId).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Hesap bulunamadı.");
         }
     }
 
-    private void issueToken(UUID userId, String email, String purpose, String path, Duration lifetime) {
+    void issueToken(UUID userId, String email, String purpose, String path, Duration lifetime) {
         Instant now = clock.instant();
         jdbc.update("UPDATE account_tokens SET consumed_at = ? WHERE user_id = ? AND purpose = ? AND consumed_at IS NULL",
             Timestamp.from(now), userId, purpose);
@@ -118,11 +118,12 @@ public class AccountEmailService {
         jdbc.update("""
             INSERT INTO email_outbox(id, user_id, recipient, subject, body, deduplication_key,
                 next_attempt_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, UUID.randomUUID(), userId, email, "Slotly e-posta doğrulama",
+            """, UUID.randomUUID(), userId, email,
+            purpose.equals("VERIFY_EMAIL") ? "Slotly e-posta doğrulama" : "Slotly parola sıfırlama",
             frontendUrl + path + "#token=" + token, "account:" + id, Timestamp.from(now), Timestamp.from(now));
     }
 
-    private static String hash(String token) {
+    static String hash(String token) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                 .digest(token.getBytes(StandardCharsets.UTF_8)));

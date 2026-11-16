@@ -34,6 +34,13 @@ public class User {
     @Column(nullable = false, length = 12)
     private UserRole role;
 
+    @Column(name = "auth_version", nullable = false)
+    private long authVersion;
+
+    public long getAuthVersion() {
+        return authVersion;
+    }
+
     protected User() {
     }
 

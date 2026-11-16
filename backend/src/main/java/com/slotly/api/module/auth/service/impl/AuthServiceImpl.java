@@ -76,6 +76,7 @@ public class AuthServiceImpl implements com.slotly.api.module.auth.service.AuthS
             .subject(user.getId().toString())
             .claim("role", user.getRole().name())
             .claim("username", user.getUsername())
+            .claim("version", user.getAuthVersion())
             .issuedAt(Date.from(issuedAt))
             .expiration(Date.from(issuedAt.plusSeconds(ACCESS_TOKEN_LIFETIME_SECONDS)))
             .signWith(jwtSigningKey)
