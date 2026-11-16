@@ -39,6 +39,8 @@ class NotificationIntegrationTests {
     @Autowired
     private EmailDispatcher dispatcher;
     @Autowired
+    private AppointmentReminderService reminders;
+    @Autowired
     private JdbcTemplate jdbc;
     @Autowired
     private UserRepository users;
@@ -118,12 +120,63 @@ class NotificationIntegrationTests {
 
     @Test
     void emailNotificationsRequireVerificationAndOptIn() {
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+            () -> notifications.savePreferences(UUID.randomUUID(), new NotificationService.Preferences(false, false, 3)))
+            .getStatusCode().value());
         User user = user();
         assertThrows(ResponseStatusException.class,
             () -> notifications.savePreferences(user.getId(), new NotificationService.Preferences(true, false)));
         var offer = offer(false);
         assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM email_outbox WHERE deduplication_key = ?",
             Integer.class, "offer:" + offer.entryId()));
+    }
+
+    @Test
+    void remindersRespectLeadTimeAndAreQueuedOnce() {
+        var offer = offer(true);
+        var appointment = bookings.acceptWaitlistOffer(offer.customerId(), offer.entryId());
+        notifications.savePreferences(offer.customerId(), new NotificationService.Preferences(true, true, 2));
+        moveAppointment(appointment.id(), Instant.now().plusSeconds(3 * 3600));
+        reminders.queueDue();
+        assertEquals(0, reminderCount(appointment.id()));
+        moveAppointment(appointment.id(), Instant.now().plusSeconds(3600));
+        reminders.queueDue();
+        reminders.queueDue();
+        assertEquals(1, reminderCount(appointment.id()));
+        drain();
+        assertEquals("SENT", reminderState(appointment.id()));
+    }
+
+    @Test
+    void cancelledAndChangedAppointmentsSuppressOldReminders() {
+        var offer = offer(true);
+        var appointment = bookings.acceptWaitlistOffer(offer.customerId(), offer.entryId());
+        notifications.savePreferences(offer.customerId(), new NotificationService.Preferences(true, true, 24));
+        moveAppointment(appointment.id(), Instant.now().plusSeconds(3600));
+        reminders.queueDue();
+        moveAppointment(appointment.id(), Instant.now().plusSeconds(2 * 3600));
+        drain();
+        assertEquals("CANCELLED", reminderState(appointment.id()));
+        reminders.queueDue();
+        assertEquals(2, reminderCount(appointment.id()));
+        bookings.cancel(offer.customerId(), appointment.id());
+        drain();
+        assertEquals(2, jdbc.queryForObject("SELECT count(*) FROM email_outbox WHERE kind = 'REMINDER' AND reference_id = ? AND state = 'CANCELLED'",
+            Integer.class, appointment.id()));
+    }
+
+    private void moveAppointment(UUID id, Instant start) {
+        jdbc.update("UPDATE appointments SET starts_at = ?, ends_at = ? WHERE id = ?",
+            java.sql.Timestamp.from(start), java.sql.Timestamp.from(start.plusSeconds(1800)), id);
+    }
+
+    private int reminderCount(UUID id) {
+        return jdbc.queryForObject("SELECT count(*) FROM email_outbox WHERE kind = 'REMINDER' AND reference_id = ?", Integer.class, id);
+    }
+
+    private String reminderState(UUID id) {
+        return jdbc.queryForObject("SELECT state FROM email_outbox WHERE kind = 'REMINDER' AND reference_id = ? ORDER BY created_at DESC LIMIT 1",
+            String.class, id);
     }
 
     private WaitlistOfferEvent offer(boolean optIn) {
