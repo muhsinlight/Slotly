@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
+import CalendarExceptions from '../components/CalendarExceptions.vue'
 import { request } from '../lib/api'
 
 type Place = { id: string; name: string; description: string | null; address: string; capacity: number; active: boolean }
@@ -206,7 +207,7 @@ async function deleteHour(hour: BusinessHour): Promise<void> {
   busy.value = true
   try {
     await request(`/owner/places/${selectedPlace.value.id}/business-hours/${hour.id}`, { method: 'DELETE' })
-    setMessage('Çalışma saati silindi. Önceden oluşturulmuş randevular etkilenmez.')
+    setMessage('Çalışma saati silindi.')
     await loadPlaceData()
   } catch (cause) {
     error.value = (cause as Error).message
@@ -302,6 +303,8 @@ onMounted(loadPlaces)
             <button class="button primary" :disabled="busy">Saat ekle</button>
           </form>
         </section>
+
+        <CalendarExceptions :key="selectedPlace.id" :place-id="selectedPlace.id" />
 
         <section class="owner-card">
           <div class="owner-section-heading">

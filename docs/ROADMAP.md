@@ -1,14 +1,14 @@
 # Slotly geliştirme planı
 
-16 Kasım 2026. Mevcut kaynak kodu üzerinden güncellenmiş plan. Aşağıdaki test sonuçları 12 Kasım doğrulamalarının tarihsel kaydıdır; bu belge güncellemesinde testler yeniden çalıştırılmadı.
+16 Kasım 2026. Mevcut kaynak kodu üzerinden güncellenmiş plan. Durum tablosu ve aşağıdaki eski doğrulama özeti 12 Kasım kaydıdır. 16 Kasım ek doğrulaması: 27 backend testi, yedi tablo için restore, frontend build ve 4 mobil tarayıcı testi geçti.
 
 ## Uygulama durumu — 12 Kasım 2026
 
 | Aşama | Uygulananlar | Açık kalanlar |
 |---|---|---|
 | 1. Müşteri akışı | Arama, mekân detayı, hizmet/tarih/saat, özet/onay, giriş ve kayıttan seçimle dönüş, ayrı randevu sayfası, iptal onayı, 401/oturum temizliği | Temel tamamlanma ölçütleri mobil tarayıcı testinde doğrulandı. |
-| 2. Güvenilirlik | İzole PostgreSQL, enjekte edilen saat, eşzamanlı rezervasyon/kabul, tekrar istekleri, kapasite ve süre çakışmaları, rol/sahiplik kontrolleri, CI ve gerçek API kullanan mobil testler | Teklif boyunca kapasite ayırma kuralı yanıt bekliyor; doğrudan rezervasyon/teklif yarışının nihai beklentisi bu kararla tamamlanacak. |
-| 3. İşletme paneli | Ayrı panel, işletme seçimi, günlük/haftalık randevu listesi, mekân/hizmet düzenleme ve görünürlük, çalışma saati ekleme/silme, kurulum adımları | Mevcut randevuyla çakışan saat/tatil değişikliği kuralı yanıt bekliyor. Tarih istisnaları modeli, migration ve arayüzü henüz uygulanmadı. |
+| 2. Güvenilirlik | İzole PostgreSQL, enjekte edilen saat, eşzamanlı rezervasyon/kabul, tekrar istekleri, kapasite ve süre çakışmaları, rol/sahiplik kontrolleri, CI ve gerçek API kullanan mobil testler | 16 Kasım: aktif teklif bir kişilik kapasite ayırır; doğrudan rezervasyon/kabul yarışı, süre sonu, ret ve kapasite > 1 testleri eklendi. |
+| 3. İşletme paneli | Ayrı panel, işletme seçimi, günlük/haftalık randevu listesi, mekân/hizmet düzenleme ve görünürlük, çalışma saati ekleme/silme, kurulum adımları | 16 Kasım: tarih istisnaları, Flyway V2 ve işletme formu eklendi. Mevcut randevu veya aktif teklifi geçersiz kılan takvim değişikliği engellenir. |
 | 4. Bekleme listesi | Ayrı ekran, Türkçe durumlar, sunucu bitiş zamanına göre sayaç, süre dolunca yeniden doğrulama, tüm sayfalarda teklif/okunmamış durumu, SSE heartbeat/yeniden bağlanma ve yedek yenileme | E-posta doğrulama/tercih ve teslimat akışı sonraki adımdır; dış bildirim sağlayıcısı kurulmadı. |
 | 5. Pilot hazırlık | Flyway V1, temiz kurulum ve mevcut kayıtları koruyan baseline testi, ortam API adresi, prod secret/CORS ayarları, giriş sınırı, sağlık/hata kayıtları, otomatik dump/restore kontrolü, ayrı demo | Gerçek canlı ortam, HTTPS proxy/domain, secret ve yedek saklama ayarları kurulmadı; sınırlı gerçek pilot başlamadı. |
 
@@ -63,7 +63,7 @@ Backend testleri uygulama bağlamına ek olarak kapasite, eşzamanlı istekler, 
 
 **Tamamlanma ölçütü:** Tekrarlanabilir kontroller kapasite aşımını, mükerrer randevuyu ve sıra ihlalini yakalar; CI başarısızsa değişiklik birleştirilmez.
 
-**Karar noktası:** 30 dakikalık teklif boyunca kapasite sıradaki kişi için tutulacak mı? Mevcut kabul işlemi kapasiteyi yeniden kontrol ediyor. Test ve API davranışını değiştirmeden bu ürün kuralı netleştirilmeli; öneri, FIFO beklentisini karşılayacak süreli kapasite ayırma davranışını değerlendirmek.
+**Karar (Muhsin, 16 Kasım):** Teklif boyunca bir kişilik kapasite ayrılır. Kabul, ret, listeden ayrılma veya süre sonunda kapasite dönüşümü/serbest bırakılması testlerle doğrulanır.
 
 ## 3. İşletme sahibinin günlük çalışma ekranı
 
@@ -76,7 +76,7 @@ Backend testleri uygulama bağlamına ek olarak kapasite, eşzamanlı istekler, 
 
 **Tamamlanma ölçütü:** İşletme sahibi API aracı açmadan bir mekân kurar, hizmetini ve saatlerini değiştirir, o günkü randevularını takip eder. Kapalı gün için yeni rezervasyon alınamaz.
 
-**Bağımlılık:** Tatil istisnaları backend ve veritabanı değiştirir. Mevcut randevular varken çalışma saatini değiştirme kuralı uygulamadan önce kararlaştırılır.
+**Karar (Muhsin, 16 Kasım):** Mevcut randevuyla çakışan değişiklik engellenir. Uygulama aktif teklifleri de korur; özel gün kaldırma ve haftalık saat silme aynı kontrolden geçer.
 
 ## 4. Bekleme listesini ürünün güçlü tarafı yapma
 
@@ -113,7 +113,7 @@ Backend testleri uygulama bağlamına ek olarak kapasite, eşzamanlı istekler, 
 
 1 → 2 → 3 → 4 → 5. Her aşama küçük, bağımsız görevler halinde doğrulanıp commit edilir. Takvim ve bildirim özelliklerinden önce temel müşteri akışı tamamlanır; pilot yayından önce güvenilirlik ve migration işleri bitirilir. Süre tahmini, aşama görevleri ve ürün kararları netleşince yapılır.
 
-İlk özellik görevi: **Teklif süresince kapasite ayırma**. Uygulama, aşağıdaki açık ürün kararının yanıtına bağlıdır.
+İlk iki özellik görevi kapasite ayırma ve tarih istisnalarıdır; uygulanıp yerelde doğrulandı. GitHub CI ve main birleşimi ayrıca doğrulanmalıdır. Sonraki geliştirme e-posta doğrulama altyapısıdır.
 
 ## Bağımsız görevler ve inceleme düzeni
 
@@ -121,8 +121,8 @@ Her satır ayrı görev dalında uygulanır; görev büyürse bağımsız alt g�
 
 | Sıra | Görev | Tamamlanma ölçütü / bağımlılık |
 |---|---|---|
-| 1 | Bekleme teklifinde kapasite ayırma | Önce kapasite ayırma kararı; doğrudan rezervasyon/kabul yarışı, ret, süre sonu ve kapasite > 1 testleri. |
-| 2 | Tatil ve özel çalışma saatleri | Önce mevcut randevuyla çakışma kararı; migration, API, işletme arayüzü ve rezervasyon engeli birlikte doğrulanır. |
+| 1 | Bekleme teklifinde kapasite ayırma | Uygulandı; doğrudan rezervasyon/kabul yarışı, ret, süre sonu ve kapasite > 1 testleri. |
+| 2 | Tatil ve özel çalışma saatleri | Uygulandı; migration, API, işletme arayüzü ve rezervasyon engeli birlikte doğrulanır. |
 | 3 | E-posta doğrulama | Adres ekleme, tek kullanımlık/süreli doğrulama ve yeniden gönderim sınırı; sağlayıcı seçimi ve gerçek gönderim ayrı onay gerektirir. |
 | 4 | Şifre sıfırlama | Doğrulanmış adres üzerinden süreli/tek kullanımlık sıfırlama, hesap varlığını ifşa etmeyen yanıt ve kötüye kullanım sınırı. |
 | 5 | Teklif bildirimi | Doğrulanmış adres ve kullanıcı tercihi; teslimat/yeniden deneme ve mükerrer gönderim kontrolü. Gerçek dış gönderim ayrıca yetkilendirilir. |
@@ -133,7 +133,7 @@ Her satır ayrı görev dalında uygulanır; görev büyürse bağımsız alt g�
 
 Çalışan takvimi, raporlar, gelişmiş keşif, takvime ekleme ve ödeme pilot geri bildirimine göre sıralanır.
 
-**Açık kararlar:** Teklif edilen bir kişilik kapasite kabul/ret veya 30 dakika sonuna kadar ayrılsın mı? Tatil/saat değişikliği mevcut randevuyla çakışınca değişiklik engellensin mi, yoksa mevcut randevular korunup yalnız yeni rezervasyonlar mı engellensin? Bu iki karar henüz verilmedi.
+**Sonraki kararlar:** E-posta sağlayıcısı, gerçek dış gönderim yetkisi ve pilot barındırma hedefi henüz seçilmedi. Bu işlemler ayrı karardır.
 
 ## Dayanaklar
 

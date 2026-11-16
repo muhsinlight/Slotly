@@ -17,6 +17,8 @@ import com.slotly.api.module.place.repository.PlaceRepository;
 import com.slotly.api.module.user.repository.UserRepository;
 import com.slotly.api.module.waitlist.repository.WaitlistRepository;
 import com.slotly.api.module.booking.service.BookingService;
+import com.slotly.api.module.place.service.BusinessCalendarService;
+import com.slotly.api.module.place.dto.request.CalendarExceptionRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +59,9 @@ class BookingServiceIntegrationTests {
 
     @Autowired
     private BookingService bookingService;
+
+    @Autowired
+    private BusinessCalendarService calendar;
 
     @Autowired
     private UserRepository users;
@@ -492,6 +497,109 @@ class BookingServiceIntegrationTests {
         bookingService.createAppointment(customerOne.getId(), new AppointmentRequest(place.getId(), service.getId(), start));
         bookingService.acceptWaitlistOffer(owner.getId(), entry);
         assertFalse(bookingService.availability(place.getId(), service.getId(), start, start.plusSeconds(1800)).contains(start));
+    }
+
+    @Test
+    void closedDateBlocksAvailabilityBookingAndWaitlist() {
+        Offering service = saveService(30);
+        Instant start = bookingDate.atTime(10, 0).atZone(BUSINESS_ZONE).toInstant();
+        calendar.save(owner.getId(), place.getId(), bookingDate, new CalendarExceptionRequest(true, null, null));
+        assertEquals(List.of(), bookingService.availability(place.getId(), service.getId(), start, start.plusSeconds(3600)));
+        ResponseStatusException bookingError = org.junit.jupiter.api.Assertions.assertThrows(
+            ResponseStatusException.class,
+            () -> bookingService.createAppointment(customerOne.getId(), new AppointmentRequest(place.getId(), service.getId(), start))
+        );
+        assertEquals(HttpStatus.BAD_REQUEST, bookingError.getStatusCode());
+        ResponseStatusException waitlistError = org.junit.jupiter.api.Assertions.assertThrows(
+            ResponseStatusException.class,
+            () -> bookingService.joinWaitlist(customerOne.getId(), new WaitlistRequest(place.getId(), service.getId(), start))
+        );
+        assertEquals(HttpStatus.BAD_REQUEST, waitlistError.getStatusCode());
+        calendar.delete(owner.getId(), place.getId(), bookingDate);
+        bookingService.createAppointment(customerOne.getId(), new AppointmentRequest(place.getId(), service.getId(), start));
+    }
+
+    @Test
+    void specialHoursReplaceWeeklyHoursAndAnchorServiceSlots() {
+        Offering service = saveService(30);
+        calendar.save(owner.getId(), place.getId(), bookingDate,
+            new CalendarExceptionRequest(false, LocalTime.of(12, 15), LocalTime.of(13, 15)));
+        Instant first = bookingDate.atTime(12, 15).atZone(BUSINESS_ZONE).toInstant();
+        assertEquals(List.of(first, first.plusSeconds(1800)), bookingService.availability(
+            place.getId(), service.getId(), bookingDate.atStartOfDay(BUSINESS_ZONE).toInstant(),
+            bookingDate.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant()
+        ));
+        bookingService.createAppointment(customerOne.getId(), new AppointmentRequest(place.getId(), service.getId(), first));
+        ResponseStatusException error = org.junit.jupiter.api.Assertions.assertThrows(
+            ResponseStatusException.class,
+            () -> bookingService.createAppointment(customerTwo.getId(),
+                new AppointmentRequest(place.getId(), service.getId(), first.plusSeconds(2700)))
+        );
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+    }
+
+    @Test
+    void calendarChangesCannotInvalidateAppointmentsAndRollbackTheException() {
+        Offering service = saveService(30);
+        Instant start = bookingDate.atTime(10, 0).atZone(BUSINESS_ZONE).toInstant();
+        UUID appointment = bookingService.createAppointment(
+            customerOne.getId(), new AppointmentRequest(place.getId(), service.getId(), start)
+        ).id();
+        ResponseStatusException error = org.junit.jupiter.api.Assertions.assertThrows(
+            ResponseStatusException.class,
+            () -> calendar.save(owner.getId(), place.getId(), bookingDate, new CalendarExceptionRequest(true, null, null))
+        );
+        assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
+        assertEquals(0, calendar.list(owner.getId(), place.getId()).size());
+        var hour = businessHours.findByPlaceIdOrderByDayOfWeekAscOpensAtAsc(place.getId()).getFirst();
+        org.junit.jupiter.api.Assertions.assertThrows(ResponseStatusException.class,
+            () -> bookingService.deleteHour(owner.getId(), place.getId(), hour.getId()));
+        assertEquals(1, bookingService.getHours(place.getId()).size());
+        bookingService.cancel(customerOne.getId(), appointment);
+        calendar.save(owner.getId(), place.getId(), bookingDate, new CalendarExceptionRequest(true, null, null));
+    }
+
+    @Test
+    void activeOffersAlsoPreventClosingTheirDate() {
+        Offering service = saveService(30);
+        Instant start = bookingDate.atTime(10, 0).atZone(BUSINESS_ZONE).toInstant();
+        UUID appointment = bookingService.createAppointment(
+            customerOne.getId(), new AppointmentRequest(place.getId(), service.getId(), start)
+        ).id();
+        UUID entry = bookingService.joinWaitlist(
+            customerTwo.getId(), new WaitlistRequest(place.getId(), service.getId(), start)
+        ).id();
+        bookingService.cancel(customerOne.getId(), appointment);
+        ResponseStatusException error = org.junit.jupiter.api.Assertions.assertThrows(ResponseStatusException.class,
+            () -> calendar.save(owner.getId(), place.getId(), bookingDate, new CalendarExceptionRequest(true, null, null)));
+        assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
+        bookingService.declineWaitlistOffer(customerTwo.getId(), entry);
+        calendar.save(owner.getId(), place.getId(), bookingDate, new CalendarExceptionRequest(true, null, null));
+    }
+
+    @Test
+    void removingSpecialHoursCannotStrandAnExistingAppointment() {
+        Offering service = saveService(30);
+        calendar.save(owner.getId(), place.getId(), bookingDate,
+            new CalendarExceptionRequest(false, LocalTime.of(19, 0), LocalTime.of(20, 0)));
+        Instant start = bookingDate.atTime(19, 0).atZone(BUSINESS_ZONE).toInstant();
+        bookingService.createAppointment(customerOne.getId(), new AppointmentRequest(place.getId(), service.getId(), start));
+        ResponseStatusException error = org.junit.jupiter.api.Assertions.assertThrows(ResponseStatusException.class,
+            () -> calendar.delete(owner.getId(), place.getId(), bookingDate));
+        assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
+        assertEquals(1, calendar.list(owner.getId(), place.getId()).size());
+    }
+
+    @Test
+    void calendarRejectsInvalidHoursAndOtherOwners() {
+        org.junit.jupiter.api.Assertions.assertThrows(ResponseStatusException.class,
+            () -> calendar.save(owner.getId(), place.getId(), bookingDate,
+                new CalendarExceptionRequest(false, LocalTime.NOON, LocalTime.of(9, 0))));
+        ResponseStatusException forbidden = org.junit.jupiter.api.Assertions.assertThrows(ResponseStatusException.class,
+            () -> calendar.save(customerOne.getId(), place.getId(), bookingDate,
+                new CalendarExceptionRequest(true, null, null)));
+        assertEquals(HttpStatus.FORBIDDEN, forbidden.getStatusCode());
+        assertEquals(0, calendar.list(owner.getId(), place.getId()).size());
     }
 
     private Callable<Boolean> bookAfterBarrier(

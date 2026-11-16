@@ -114,3 +114,36 @@ test('API 401 clears the session and preserves the booking choice', async ({ pag
   await login(page, data.customer.username)
   await expect(page.getByRole('button', { name: '12:00', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
+
+test('owner manages closed and special dates while existing appointments stay protected', async ({ page, request }) => {
+  const data = await fixture(request)
+  await page.goto('/login?returnTo=' + encodeURIComponent('/owner'))
+  await login(page, data.owner.username)
+  const calendar = page.getByRole('region', { name: 'Özel günler', exact: true })
+  await calendar.getByLabel('Özel gün tarihi').fill(data.date)
+  await calendar.getByRole('button', { name: 'Özel günü kaydet', exact: true }).click()
+  await expect(calendar.getByRole('article')).toContainText('Kapalı')
+  const availability = () => request.get(api + '/places/' + data.place.id + '/availability', {
+    params: { offeringId: data.offering.id, from: data.date + 'T00:00:00Z', to: data.date + 'T23:59:59Z' },
+  })
+  expect((await (await availability()).json()).data).toHaveLength(0)
+
+  await calendar.getByLabel('Bu gün kapalı').uncheck()
+  await calendar.getByLabel('Özel açılış').fill('12:00')
+  await calendar.getByLabel('Özel kapanış').fill('13:00')
+  await calendar.getByRole('button', { name: 'Özel günü kaydet', exact: true }).click()
+  await expect(calendar.getByRole('article')).toContainText('12:00 – 13:00')
+  expect((await (await availability()).json()).data).toHaveLength(2)
+  await post(request, '/appointments', {
+    placeId: data.place.id, offeringId: data.offering.id, startsAt: data.startsAt,
+  }, data.customer.token)
+  await calendar.getByLabel('Bu gün kapalı').check()
+  await calendar.getByRole('button', { name: 'Özel günü kaydet', exact: true }).click()
+  await expect(calendar.getByRole('alert')).toContainText('mevcut randevu')
+  await expect(calendar.getByRole('article')).toContainText('12:00 – 13:00')
+
+  page.once('dialog', (dialog) => dialog.accept())
+  await calendar.getByRole('button', { name: 'Kaldır', exact: true }).click()
+  await expect(calendar.getByRole('status')).toContainText('haftalık çalışma saatleri geçerli')
+  expect((await (await availability()).json()).data.length).toBeGreaterThan(2)
+})
