@@ -366,6 +366,134 @@ class BookingServiceIntegrationTests {
         }
     }
 
+    @Test
+    void activeOfferBlocksDirectBookingsAndOverlappingServicesButCanBeAccepted() {
+        Offering service = saveService(60);
+        Offering shortService = saveService(30);
+        Instant start = bookingDate.atTime(10, 0).atZone(BUSINESS_ZONE).toInstant();
+        UUID appointment = bookingService.createAppointment(
+            customerOne.getId(), new AppointmentRequest(place.getId(), service.getId(), start)
+        ).id();
+        UUID entry = bookingService.joinWaitlist(
+            customerTwo.getId(), new WaitlistRequest(place.getId(), service.getId(), start)
+        ).id();
+        bookingService.cancel(customerOne.getId(), appointment);
+
+        assertFalse(bookingService.availability(place.getId(), service.getId(), start, start.plusSeconds(3600)).contains(start));
+        ResponseStatusException conflict = org.junit.jupiter.api.Assertions.assertThrows(
+            ResponseStatusException.class,
+            () -> bookingService.createAppointment(customerOne.getId(),
+                new AppointmentRequest(place.getId(), shortService.getId(), start.plusSeconds(1800)))
+        );
+        assertEquals(HttpStatus.CONFLICT, conflict.getStatusCode());
+        bookingService.acceptWaitlistOffer(customerTwo.getId(), entry);
+        assertEquals(1, bookingService.myAppointments(customerTwo.getId()).size());
+    }
+
+    @Test
+    void decliningOrLeavingAnOfferReleasesItsHold() {
+        Offering service = saveService(30);
+        Instant start = bookingDate.atTime(10, 0).atZone(BUSINESS_ZONE).toInstant();
+        for (boolean decline : List.of(true, false)) {
+            UUID appointment = bookingService.createAppointment(
+                customerOne.getId(), new AppointmentRequest(place.getId(), service.getId(), start)
+            ).id();
+            UUID entry = bookingService.joinWaitlist(
+                customerTwo.getId(), new WaitlistRequest(place.getId(), service.getId(), start)
+            ).id();
+            bookingService.cancel(customerOne.getId(), appointment);
+            if (decline) {
+                bookingService.declineWaitlistOffer(customerTwo.getId(), entry);
+            } else {
+                bookingService.leaveWaitlist(customerTwo.getId(), entry);
+            }
+            assertEquals(List.of(start), bookingService.availability(
+                place.getId(), service.getId(), start, start.plusSeconds(1800)
+            ));
+        }
+    }
+
+    @Test
+    void expirationAtTheDeadlinePassesTheHoldToTheNextCustomerBeforeDirectBooking() {
+        Offering service = saveService(30);
+        Instant start = bookingDate.atTime(10, 0).atZone(BUSINESS_ZONE).toInstant();
+        UUID appointment = bookingService.createAppointment(
+            customerOne.getId(), new AppointmentRequest(place.getId(), service.getId(), start)
+        ).id();
+        UUID first = bookingService.joinWaitlist(
+            customerTwo.getId(), new WaitlistRequest(place.getId(), service.getId(), start)
+        ).id();
+        clock.advance(Duration.ofMillis(5));
+        UUID second = bookingService.joinWaitlist(
+            customerOne.getId(), new WaitlistRequest(place.getId(), service.getId(), start)
+        ).id();
+        bookingService.cancel(customerOne.getId(), appointment);
+        clock.setInstant(waitlist.findById(first).orElseThrow().getOfferExpiresAt());
+
+        ResponseStatusException conflict = org.junit.jupiter.api.Assertions.assertThrows(
+            ResponseStatusException.class,
+            () -> bookingService.createAppointment(customerTwo.getId(),
+                new AppointmentRequest(place.getId(), service.getId(), start))
+        );
+        assertEquals(HttpStatus.CONFLICT, conflict.getStatusCode());
+        bookingService.expireOffers();
+        assertEquals("EXPIRED", waitlist.findById(first).orElseThrow().getStatus().name());
+        assertEquals("OFFERED", waitlist.findById(second).orElseThrow().getStatus().name());
+        bookingService.acceptWaitlistOffer(customerOne.getId(), second);
+    }
+
+    @Test
+    void directBookingCannotWinAgainstAcceptanceOfAHeldSeat() throws Exception {
+        Offering service = saveService(30);
+        Instant start = bookingDate.atTime(10, 0).atZone(BUSINESS_ZONE).toInstant();
+        UUID appointment = bookingService.createAppointment(
+            customerOne.getId(), new AppointmentRequest(place.getId(), service.getId(), start)
+        ).id();
+        UUID entry = bookingService.joinWaitlist(
+            customerTwo.getId(), new WaitlistRequest(place.getId(), service.getId(), start)
+        ).id();
+        bookingService.cancel(customerOne.getId(), appointment);
+        CyclicBarrier barrier = new CyclicBarrier(2);
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            Callable<Boolean> accept = () -> {
+                barrier.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                bookingService.acceptWaitlistOffer(customerTwo.getId(), entry);
+                return true;
+            };
+            List<Future<Boolean>> results = executor.invokeAll(List.of(
+                bookAfterBarrier(barrier, customerOne, service, start), accept
+            ));
+            assertFalse(results.getFirst().get());
+            assertEquals(true, results.getLast().get());
+            assertEquals(1, bookingService.myAppointments(customerTwo.getId()).size());
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void aHoldReservesOnlyOneSeatWhenOtherCapacityBecomesAvailable() {
+        place.update(place.getName(), null, place.getAddress(), 2, true);
+        places.save(place);
+        Offering service = saveService(30);
+        Instant start = bookingDate.atTime(10, 0).atZone(BUSINESS_ZONE).toInstant();
+        UUID first = bookingService.createAppointment(
+            customerOne.getId(), new AppointmentRequest(place.getId(), service.getId(), start)
+        ).id();
+        UUID second = bookingService.createAppointment(
+            customerTwo.getId(), new AppointmentRequest(place.getId(), service.getId(), start)
+        ).id();
+        UUID entry = bookingService.joinWaitlist(
+            owner.getId(), new WaitlistRequest(place.getId(), service.getId(), start)
+        ).id();
+        bookingService.cancel(customerOne.getId(), first);
+        bookingService.cancel(customerTwo.getId(), second);
+        bookingService.createAppointment(customerOne.getId(), new AppointmentRequest(place.getId(), service.getId(), start));
+        bookingService.acceptWaitlistOffer(owner.getId(), entry);
+        assertFalse(bookingService.availability(place.getId(), service.getId(), start, start.plusSeconds(1800)).contains(start));
+    }
+
     private Callable<Boolean> bookAfterBarrier(
         CyclicBarrier barrier,
         User customer,
