@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
 import CalendarExceptions from '../components/CalendarExceptions.vue'
 import { request } from '../lib/api'
@@ -26,6 +26,7 @@ const loading = ref(true)
 const busy = ref(false)
 const error = ref('')
 const notice = ref('')
+let placeDataRequest: AbortController | undefined
 const placeForm = ref({ name: '', description: '', address: '', capacity: 1, active: true })
 const hourForm = ref({ dayOfWeek: 'MONDAY', opensAt: '09:00', closesAt: '17:00' })
 const offerForm = ref({ id: '', name: '', description: '', price: 0, durationMinutes: 30, kind: 'SERVICE' as 'SERVICE' | 'PRODUCT', active: true })
@@ -71,22 +72,29 @@ async function loadPlaces(): Promise<void> {
 }
 
 async function loadPlaceData(): Promise<void> {
+  placeDataRequest?.abort()
+  const controller = new AbortController()
+  placeDataRequest = controller
+  offerings.value = []
+  hours.value = []
+  appointments.value = []
   const place = selectedPlace.value
   if (!place) {
-    offerings.value = []
-    hours.value = []
-    appointments.value = []
+    loading.value = false
     return
   }
 
+  loading.value = true
+  error.value = ''
   const range = dayRange()
   const query = new URLSearchParams({ placeId: place.id, from: range.from, to: range.to })
   try {
     const [offerList, hourList, appointmentList] = await Promise.all([
-      request<Offering[]>(`/owner/places/${place.id}/offerings`),
-      request<BusinessHour[]>(`/places/${place.id}/business-hours`),
-      request<Appointment[]>(`/owner/appointments?${query}`),
+      request<Offering[]>(`/owner/places/${place.id}/offerings`, { signal: controller.signal }),
+      request<BusinessHour[]>(`/places/${place.id}/business-hours`, { signal: controller.signal }),
+      request<Appointment[]>(`/owner/appointments?${query}`, { signal: controller.signal }),
     ])
+    if (controller.signal.aborted || placeDataRequest !== controller) return
     offerings.value = offerList
     hours.value = hourList
     appointments.value = appointmentList
@@ -99,9 +107,10 @@ async function loadPlaceData(): Promise<void> {
     }
     error.value = ''
   } catch (cause) {
+    if (controller.signal.aborted || placeDataRequest !== controller) return
     error.value = (cause as Error).message
   } finally {
-    loading.value = false
+    if (placeDataRequest === controller) loading.value = false
   }
 }
 
@@ -216,7 +225,8 @@ async function deleteHour(hour: BusinessHour): Promise<void> {
   }
 }
 
-watch([selectedPlaceId, date, calendarView], () => { void loadPlaceData() })
+watch([selectedPlaceId, date, calendarView], () => { void loadPlaceData() }, { flush: 'sync' })
+onUnmounted(() => placeDataRequest?.abort())
 onMounted(loadPlaces)
 </script>
 

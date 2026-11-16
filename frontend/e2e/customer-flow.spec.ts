@@ -147,3 +147,37 @@ test('owner manages closed and special dates while existing appointments stay pr
   await expect(calendar.getByRole('status')).toContainText('haftalık çalışma saatleri geçerli')
   expect((await (await availability()).json()).data.length).toBeGreaterThan(2)
 })
+
+test('owner changing places ignores a late response from the previous selection', async ({ page, request }) => {
+  const data = await fixture(request)
+  const second = await post(request, '/owner/places', {
+    name: 'Second studio', address: 'Second address', capacity: 1, active: true,
+  }, data.owner.token)
+  let releaseResponse!: () => void
+  let markStarted!: () => void
+  let markFinished!: () => void
+  const delayed = new Promise<void>((resolve) => { releaseResponse = resolve })
+  const started = new Promise<void>((resolve) => { markStarted = resolve })
+  const finished = new Promise<void>((resolve) => { markFinished = resolve })
+  await page.goto('/login?returnTo=' + encodeURIComponent('/owner'))
+  await login(page, data.owner.username)
+  const selector = page.getByRole('combobox', { name: 'Mekân', exact: true })
+  await selector.selectOption(second.id)
+  await expect(page.getByLabel('Mekân adı', { exact: true })).toHaveValue(second.name)
+  await page.route('**/owner/places/' + data.place.id + '/offerings', async (route) => {
+    const response = await route.fetch()
+    markStarted()
+    await delayed
+    await route.fulfill({ response })
+    markFinished()
+  })
+  await selector.selectOption(data.place.id)
+  await started
+  await selector.selectOption(second.id)
+  await expect(page.getByLabel('Mekân adı', { exact: true })).toHaveValue(second.name)
+  releaseResponse()
+  await finished
+  // Subsequent rendering must still show the currently selected place's data.
+  await expect(page.getByLabel('Mekân adı', { exact: true })).toHaveValue(second.name)
+  await expect(page.getByText('Bakım', { exact: true })).toHaveCount(0)
+})
