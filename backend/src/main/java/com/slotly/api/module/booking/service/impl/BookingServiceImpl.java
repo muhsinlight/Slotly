@@ -125,7 +125,11 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
 
     @Transactional
     public PlaceResponse updatePlace(UUID ownerId, UUID placeId, PlaceRequest request) {
-        Place place = requireOwnedPlace(ownerId, placeId);
+        Place place = places.findLockedById(placeId).orElseThrow(() -> notFound("Place not found"));
+        requireOwnedPlace(ownerId, placeId);
+        if (request.capacity() < place.getCapacity()) {
+            validateCapacityReduction(placeId, request.capacity());
+        }
         place.update(
             request.name(),
             request.description(),
@@ -134,6 +138,33 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
             request.active()
         );
         return PlaceResponse.from(place);
+    }
+
+    private void validateCapacityReduction(UUID placeId, int capacity) {
+        Instant now = clock.instant();
+        TreeMap<Instant, Integer> changes = new TreeMap<>();
+        for (Appointment appointment : appointments.findByPlaceIdAndStatusAndEndsAtGreaterThan(
+            placeId, AppointmentStatus.CONFIRMED, now
+        )) {
+            changes.merge(appointment.getStartsAt().isBefore(now) ? now : appointment.getStartsAt(), 1, Integer::sum);
+            changes.merge(appointment.getEndsAt(), -1, Integer::sum);
+        }
+        for (WaitlistEntry offer : waitlist.findByPlaceIdAndStatusAndOfferExpiresAtGreaterThan(
+            placeId, WaitlistStatus.OFFERED, now
+        )) {
+            if (offer.getRequestedEndsAt().isAfter(now)) {
+                changes.merge(offer.getRequestedStartsAt().isBefore(now) ? now : offer.getRequestedStartsAt(), 1, Integer::sum);
+                changes.merge(offer.getRequestedEndsAt(), -1, Integer::sum);
+            }
+        }
+        int active = 0;
+        for (int change : changes.values()) {
+            active += change;
+            if (active > capacity) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Kapasite mevcut randevu veya aktif bekleme tekliflerinin altına indirilemez.");
+            }
+        }
     }
 
     @Transactional

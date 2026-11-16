@@ -475,6 +475,77 @@ class BookingServiceIntegrationTests {
         }
     }
 
+    @Test
+    void capacityReductionRejectsOverlappingAppointmentsAndRollsBackOtherChanges() {
+        setCapacity(3);
+        Offering service = saveService(30);
+        book(customerOne, service, at(10, 0));
+        book(customerTwo, service, at(10, 0));
+
+        assertStatus(HttpStatus.CONFLICT, () -> changeCapacity(1));
+        Place unchanged = places.findById(place.getId()).orElseThrow();
+        assertEquals(3, unchanged.getCapacity());
+        assertEquals("Test Place", unchanged.getName());
+        changeCapacity(2);
+        assertEquals(2, places.findById(place.getId()).orElseThrow().getCapacity());
+    }
+
+    @Test
+    void capacityReductionCountsActiveOffersButNotExpiredOffers() {
+        setCapacity(2);
+        Offering service = saveService(30);
+        UUID first = book(customerOne, service, at(10, 0));
+        book(customerTwo, service, at(10, 0));
+        joinWaitlist(customerOne, service, at(10, 0));
+        bookingService.cancel(customerOne.getId(), first);
+
+        assertStatus(HttpStatus.CONFLICT, () -> changeCapacity(1));
+        clock.advance(Duration.ofMinutes(30));
+        changeCapacity(1);
+        assertEquals(1, places.findById(place.getId()).orElseThrow().getCapacity());
+    }
+
+    @Test
+    void capacityReductionUsesPeakOccupancyRatherThanTotalAppointments() {
+        setCapacity(3);
+        Offering service = saveService(30);
+        book(customerOne, service, at(10, 0));
+        book(customerTwo, service, at(10, 30));
+
+        changeCapacity(1);
+        assertEquals(1, places.findById(place.getId()).orElseThrow().getCapacity());
+    }
+
+    @Test
+    void capacityReductionAndBookingCannotTogetherExceedCapacity() throws Exception {
+        setCapacity(2);
+        Offering service = saveService(30);
+        book(customerOne, service, at(10, 0));
+        CyclicBarrier barrier = new CyclicBarrier(2);
+        List<Boolean> results = runConcurrently(
+            () -> {
+                barrier.await(10, TimeUnit.SECONDS);
+                try {
+                    changeCapacity(1);
+                    return true;
+                } catch (ResponseStatusException exception) {
+                    assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+                    return false;
+                }
+            },
+            bookAfterBarrier(barrier, customerTwo, service, at(10, 0))
+        );
+
+        assertEquals(1, results.stream().filter(Boolean::booleanValue).count());
+        assertTrue(appointmentsForThisPlace() <= places.findById(place.getId()).orElseThrow().getCapacity());
+    }
+
+    private void changeCapacity(int capacity) {
+        bookingService.updatePlace(owner.getId(), place.getId(), new PlaceRequest(
+            "Changed place", null, "Changed address", capacity, true
+        ));
+    }
+
     private void closeDate() {
         calendar.save(owner.getId(), place.getId(), bookingDate, new CalendarExceptionRequest(true, null, null));
     }
