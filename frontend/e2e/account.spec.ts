@@ -1,6 +1,22 @@
 import { test, expect } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 
+test('password recovery keeps account existence private and rejects invalid links', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByRole('link', { name: 'Parolamı unuttum' }).click()
+  await page.getByLabel('E-posta', { exact: true }).fill('unknown-' + randomUUID().slice(0, 8) + '@example.test')
+  await page.getByRole('button', { name: 'Sıfırlama bağlantısı iste' }).click()
+  await expect(page.getByRole('status')).toContainText('Adres doğrulanmış bir hesaba aitse')
+  await page.goto('/reset-password#token=invalid')
+  await page.getByLabel('Yeni parola', { exact: true }).fill('NewPassword2026!')
+  await page.getByLabel('Yeni parolayı tekrar yaz', { exact: true }).fill('DifferentPassword2026!')
+  await page.getByRole('button', { name: 'Parolayı değiştir' }).click()
+  await expect(page.getByRole('alert')).toContainText('eşleşmiyor')
+  await page.getByLabel('Yeni parolayı tekrar yaz', { exact: true }).fill('NewPassword2026!')
+  await page.getByRole('button', { name: 'Parolayı değiştir' }).click()
+  await expect(page.getByRole('alert')).toContainText('geçersiz')
+})
+
 test('customer manages email verification from account settings', async ({ page, request }) => {
   const username = 'email-' + randomUUID().slice(0, 8)
   const password = 'EmailBrowser2026!'

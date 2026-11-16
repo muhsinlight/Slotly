@@ -56,7 +56,9 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
             }
         }
 
-        return !LOGIN_PATH.equals(path);
+        return !LOGIN_PATH.equals(path)
+            && !"/api/auth/forgot-password".equals(path)
+            && !"/api/auth/reset-password".equals(path);
     }
 
     @Override
