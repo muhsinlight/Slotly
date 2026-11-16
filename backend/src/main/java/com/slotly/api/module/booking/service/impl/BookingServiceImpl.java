@@ -293,6 +293,7 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
     @Transactional
     public AppointmentResponse createAppointment(UUID customerId, AppointmentRequest request) {
         Place place = places.findLockedById(request.placeId()).orElseThrow(() -> notFound("Place not found"));
+        expirePlaceOffers(place);
         Offering offering = requireOffering(request.offeringId());
         ensureBookableOffering(place, offering);
 
@@ -368,6 +369,7 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
     @Transactional
     public WaitlistResponse joinWaitlist(UUID customerId, WaitlistRequest request) {
         Place place = places.findLockedById(request.placeId()).orElseThrow(() -> notFound("Place not found"));
+        expirePlaceOffers(place);
         Offering offering = requireOffering(request.offeringId());
         ensureBookableOffering(place, offering);
 
@@ -420,7 +422,11 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
             offerNext(place, entry.getOffering(), entry.getRequestedStartsAt());
             throw new ResponseStatusException(HttpStatus.GONE, "The waitlist offer has expired");
         }
-        if (!hasCapacity(place, entry.getRequestedStartsAt(), entry.getRequestedEndsAt())) {
+        if (!entry.getRequestedStartsAt().isAfter(Instant.now(clock))) {
+            entry.changeStatus(WaitlistStatus.EXPIRED);
+            throw new ResponseStatusException(HttpStatus.GONE, "The requested time has passed");
+        }
+        if (!hasCapacity(place, entry.getRequestedStartsAt(), entry.getRequestedEndsAt(), entry.getId())) {
             entry.changeStatus(WaitlistStatus.EXPIRED);
             offerNext(place, entry.getOffering(), entry.getRequestedStartsAt());
             throw new ResponseStatusException(HttpStatus.CONFLICT, "The requested time is no longer available");
@@ -495,6 +501,9 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
     }
 
     private void offerNext(Place place, Offering offering, Instant startsAt) {
+        if (!startsAt.isAfter(Instant.now(clock))) {
+            return;
+        }
         Instant endsAt = startsAt.plusSeconds(offering.getDurationMinutes() * 60L);
         if (!hasCapacity(place, startsAt, endsAt)) {
             return;
@@ -528,6 +537,23 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
     }
 
     private boolean hasCapacity(Place place, Instant startsAt, Instant endsAt) {
+        return hasCapacity(place, startsAt, endsAt, null);
+    }
+
+    private void expirePlaceOffers(Place place) {
+        List<WaitlistEntry> expired = waitlist.findByPlaceIdAndStatusAndOfferExpiresAtLessThanEqual(
+            place.getId(), WaitlistStatus.OFFERED, Instant.now(clock)
+        );
+        for (WaitlistEntry entry : expired) {
+            entityManager.refresh(entry);
+            if (entry.getStatus() == WaitlistStatus.OFFERED) {
+                entry.changeStatus(WaitlistStatus.EXPIRED);
+                offerNext(place, entry.getOffering(), entry.getRequestedStartsAt());
+            }
+        }
+    }
+
+    private boolean hasCapacity(Place place, Instant startsAt, Instant endsAt, UUID acceptedOfferId) {
         List<Appointment> overlapping = appointments.findByPlaceIdAndStatusAndStartsAtLessThanAndEndsAtGreaterThan(
             place.getId(),
             AppointmentStatus.CONFIRMED,
@@ -538,6 +564,19 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
         for (Appointment appointment : overlapping) {
             Instant start = appointment.getStartsAt().isBefore(startsAt) ? startsAt : appointment.getStartsAt();
             Instant end = appointment.getEndsAt().isAfter(endsAt) ? endsAt : appointment.getEndsAt();
+            changes.merge(start, 1, Integer::sum);
+            changes.merge(end, -1, Integer::sum);
+        }
+        List<WaitlistEntry> holds = waitlist
+            .findByPlaceIdAndStatusAndOfferExpiresAtGreaterThanAndRequestedStartsAtLessThanAndRequestedEndsAtGreaterThan(
+                place.getId(), WaitlistStatus.OFFERED, Instant.now(clock), endsAt, startsAt
+            );
+        for (WaitlistEntry hold : holds) {
+            if (hold.getId().equals(acceptedOfferId)) {
+                continue;
+            }
+            Instant start = hold.getRequestedStartsAt().isBefore(startsAt) ? startsAt : hold.getRequestedStartsAt();
+            Instant end = hold.getRequestedEndsAt().isAfter(endsAt) ? endsAt : hold.getRequestedEndsAt();
             changes.merge(start, 1, Integer::sum);
             changes.merge(end, -1, Integer::sum);
         }

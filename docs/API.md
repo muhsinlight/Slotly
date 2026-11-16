@@ -11,7 +11,8 @@
 - Bekleme listesine katılma; teklif kabul etme, reddetme veya listeden ayrılma.
 - Yalnız etkin ve pozitif süreli `SERVICE` kayıtları randevuya alınır. `PRODUCT` kayıtları keşif ve fiyat listesinde görünür, randevuya bağlanmaz.
 - Uygun saatler çalışma aralığının açılışından başlayarak hizmet süresi kadar adımlarla üretilir. Arama aralığı en fazla 31 gündür.
-- Kapasite, aktif randevuların zaman aralığı çakışmalarına göre hesaplanır. Eşzamanlı rezervasyonlarda kontrol ve kayıt mekân kilidi altında yapılır.
+- Kapasite, onaylı randevular ve süresi dolmamış bekleme tekliflerinin zaman aralığı çakışmalarına göre hesaplanır. Her teklif bir kişilik kapasiteyi en fazla 30 dakika ayırır. Kabulde ayrılan yer randevuya dönüşür; ret, listeden ayrılma ve süre sonunda serbest kalır. Eşzamanlı rezervasyonlarda kontrol ve kayıt mekân kilidi altında yapılır.
+- Teklif süresi dolunca sıradaki müşteriye geçiş, zamanlanmış kontrole ek olarak yeni rezervasyon isteğinde de mekân kilidi altında kontrol edilir; doğrudan rezervasyon sıradaki müşterinin yerini alamaz.
 - Çalışma saatleri varsayılan olarak `Europe/Istanbul` saat diliminde yorumlanır.
 
 ## Kimlik doğrulama ve yanıt biçimi

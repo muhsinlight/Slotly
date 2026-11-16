@@ -27,4 +27,18 @@ public interface WaitlistRepository extends JpaRepository<WaitlistEntry, UUID> {
     );
 
     List<WaitlistEntry> findByStatusAndOfferExpiresAtLessThanEqual(WaitlistStatus status, Instant now);
+
+    List<WaitlistEntry> findByPlaceIdAndStatusAndOfferExpiresAtLessThanEqual(
+        UUID placeId,
+        WaitlistStatus status,
+        Instant now
+    );
+
+    List<WaitlistEntry> findByPlaceIdAndStatusAndOfferExpiresAtGreaterThanAndRequestedStartsAtLessThanAndRequestedEndsAtGreaterThan(
+        UUID placeId,
+        WaitlistStatus status,
+        Instant now,
+        Instant end,
+        Instant start
+    );
 }
