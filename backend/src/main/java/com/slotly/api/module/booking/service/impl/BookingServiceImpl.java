@@ -1,6 +1,7 @@
 package com.slotly.api.module.booking.service.impl;
 
 import com.slotly.api.module.booking.service.BookingService;
+import com.slotly.api.module.place.service.BusinessCalendarService;
 import com.slotly.api.module.waitlist.service.impl.WaitlistOfferEvent;
 
 import com.slotly.api.module.booking.dto.request.AppointmentRequest;
@@ -64,6 +65,7 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
     private final ZoneId zone;
     private final Clock clock;
     private final ApplicationEventPublisher events;
+    private final BusinessCalendarService calendar;
 
     public BookingServiceImpl(
         PlaceRepository places,
@@ -74,6 +76,7 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
         WaitlistRepository waitlist,
         Clock clock,
         ApplicationEventPublisher events,
+        BusinessCalendarService calendar,
         @Value("${slotly.business.time-zone:Europe/Istanbul}") String zone
     ) {
         this.places = places;
@@ -84,6 +87,7 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
         this.waitlist = waitlist;
         this.clock = clock;
         this.events = events;
+        this.calendar = calendar;
         this.zone = ZoneId.of(zone);
     }
 
@@ -218,7 +222,8 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
 
     @Transactional
     public BusinessHourResponse addHour(UUID ownerId, UUID placeId, BusinessHourRequest request) {
-        Place place = requireOwnedPlace(ownerId, placeId);
+        Place place = places.findLockedById(placeId).orElseThrow(() -> notFound("Place not found"));
+        requireOwnedPlace(ownerId, placeId);
         if (!request.opensAt().isBefore(request.closesAt())) {
             throw bad("Closing time must be after opening time");
         }
@@ -237,12 +242,7 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
 
     @Transactional
     public void deleteHour(UUID ownerId, UUID placeId, UUID hourId) {
-        Place place = requireOwnedPlace(ownerId, placeId);
-        BusinessHour hour = hours.findById(hourId).orElseThrow(() -> notFound("Business hours not found"));
-        if (!hour.getPlace().getId().equals(place.getId())) {
-            throw notFound("Business hours not found");
-        }
-        hours.delete(hour);
+        calendar.deleteHour(ownerId, placeId, hourId);
     }
 
     @Transactional(readOnly = true)
@@ -259,22 +259,18 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
 
         List<Instant> slots = new ArrayList<>();
         long slotStepSeconds = offering.getDurationMinutes() * 60L;
-        List<BusinessHour> placeHours = hours.findByPlaceIdOrderByDayOfWeekAscOpensAtAsc(placeId);
         LocalDateTime rangeStart = from.atZone(zone).toLocalDate().atStartOfDay();
         LocalDateTime rangeEnd = to.atZone(zone).toLocalDate().atStartOfDay();
 
         for (LocalDateTime date = rangeStart; !date.isAfter(rangeEnd); date = date.plusDays(1)) {
-            for (BusinessHour businessHour : placeHours) {
-                if (businessHour.getDayOfWeek() != date.getDayOfWeek()) {
-                    continue;
-                }
+            for (var businessHour : calendar.intervals(placeId, date.toLocalDate())) {
 
-                Instant slot = date.toLocalDate().atTime(businessHour.getOpensAt()).atZone(zone).toInstant();
+                Instant slot = date.toLocalDate().atTime(businessHour.opensAt()).atZone(zone).toInstant();
                 while (slot.isBefore(from)) {
                     slot = slot.plusSeconds(slotStepSeconds);
                 }
                 Instant businessClosing = date.toLocalDate()
-                    .atTime(businessHour.getClosesAt())
+                    .atTime(businessHour.closesAt())
                     .atZone(zone)
                     .toInstant();
 
@@ -593,21 +589,20 @@ public class BookingServiceImpl implements com.slotly.api.module.booking.service
     private boolean isValidServiceSlot(UUID placeId, Offering offering, Instant startsAt, Instant endsAt) {
         LocalDateTime localStart = startsAt.atZone(zone).toLocalDateTime();
         LocalDateTime localEnd = endsAt.atZone(zone).toLocalDateTime();
-        return hours.findByPlaceIdOrderByDayOfWeekAscOpensAtAsc(placeId)
+        return calendar.intervals(placeId, localStart.toLocalDate())
             .stream()
             .anyMatch(hour -> isWithinHour(hour, offering, localStart, localEnd));
     }
 
     private boolean isWithinHour(
-        BusinessHour hour,
+        BusinessCalendarService.OpeningInterval hour,
         Offering offering,
         LocalDateTime startsAt,
         LocalDateTime endsAt
     ) {
-        long offsetFromOpeningMinutes = Duration.between(hour.getOpensAt(), startsAt.toLocalTime()).toMinutes();
-        return hour.getDayOfWeek() == startsAt.getDayOfWeek()
-            && !startsAt.toLocalTime().isBefore(hour.getOpensAt())
-            && !endsAt.toLocalTime().isAfter(hour.getClosesAt())
+        long offsetFromOpeningMinutes = Duration.between(hour.opensAt(), startsAt.toLocalTime()).toMinutes();
+        return !startsAt.toLocalTime().isBefore(hour.opensAt())
+            && !endsAt.toLocalTime().isAfter(hour.closesAt())
             && startsAt.toLocalDate().equals(endsAt.toLocalDate())
             && offsetFromOpeningMinutes % offering.getDurationMinutes() == 0;
     }

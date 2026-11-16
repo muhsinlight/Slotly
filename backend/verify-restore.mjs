@@ -12,7 +12,7 @@ function run(...args) {
 }
 
 const restored = 'slotly_restore_test'
-const tables = ['app_users', 'places', 'offerings', 'business_hours', 'appointments', 'waitlist_entries']
+const tables = ['app_users', 'places', 'offerings', 'business_hours', 'appointments', 'waitlist_entries', 'calendar_exceptions']
 run('pg_dump', '-U', 'slotly', '-d', 'slotly_test', '--format=custom', '--no-owner', '--file=/tmp/slotly-check.dump')
 run('createdb', '-U', 'slotly', restored)
 try {
@@ -23,7 +23,7 @@ try {
     const copy = run('psql', '-U', 'slotly', '-d', restored, '-At', '-v', 'ON_ERROR_STOP=1', '-c', sql)
     if (original !== copy) throw new Error('Restore mismatch: ' + table)
   }
-  console.log('Backup restore verified: six tables match row counts and content checksums.')
+  console.log(`Backup restore verified: ${tables.length} tables match row counts and content checksums.`)
 } finally {
   run('dropdb', '-U', 'slotly', restored)
 }

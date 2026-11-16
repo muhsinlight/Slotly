@@ -14,6 +14,7 @@
 - Kapasite, onaylı randevular ve süresi dolmamış bekleme tekliflerinin zaman aralığı çakışmalarına göre hesaplanır. Her teklif bir kişilik kapasiteyi en fazla 30 dakika ayırır. Kabulde ayrılan yer randevuya dönüşür; ret, listeden ayrılma ve süre sonunda serbest kalır. Eşzamanlı rezervasyonlarda kontrol ve kayıt mekân kilidi altında yapılır.
 - Teklif süresi dolunca sıradaki müşteriye geçiş, zamanlanmış kontrole ek olarak yeni rezervasyon isteğinde de mekân kilidi altında kontrol edilir; doğrudan rezervasyon sıradaki müşterinin yerini alamaz.
 - Çalışma saatleri varsayılan olarak `Europe/Istanbul` saat diliminde yorumlanır.
+- Tarihe özel kapalı gün veya açılış–kapanış saati, o tarihin haftalık saatlerinin yerine geçer. Özel saat silinince haftalık takvim yeniden geçerli olur. Değişiklik onaylı bir randevuyu veya aktif bekleme teklifini çalışma saatleri dışında bırakırsa `409` ile reddedilir; haftalık saat silme işlemi de aynı kurala tabidir.
 
 ## Kimlik doğrulama ve yanıt biçimi
 
@@ -60,6 +61,14 @@ Kayıt gövdesi örneği:
 ### İşletme yönetimi
 
 Aşağıdaki uçlar yalnızca ilgili mekânın sahibi olan `OWNER` rolüyle kullanılabilir.
+
+Özel günler için `{date}` biçimi `YYYY-MM-DD` şeklindedir. `PUT` gövdesi kapalı gün için `{"closed":true,"opensAt":null,"closesAt":null}`, özel saat için `{"closed":false,"opensAt":"12:00","closesAt":"17:00"}` olur. Bir tarih için tek özel aralık tanımlanabilir; aynı tarihe tekrar `PUT` kaydı günceller. Geçmiş tarihe `PUT` yapılmaz.
+
+| Yöntem ve uç | Açıklama |
+|---|---|
+| `GET /api/owner/places/{placeId}/calendar-exceptions` | Özel günleri tarih sırasıyla listeler. |
+| `PUT /api/owner/places/{placeId}/calendar-exceptions/{date}` | Kapalı gün veya özel saat oluşturur/günceller. |
+| `DELETE /api/owner/places/{placeId}/calendar-exceptions/{date}` | Özel günü kaldırır; haftalık saate dönüş de çakışma kontrolünden geçer. |
 
 | Yöntem ve uç | Açıklama |
 |---|---|
