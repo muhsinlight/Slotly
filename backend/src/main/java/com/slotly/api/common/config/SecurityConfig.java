@@ -64,7 +64,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/register", "/api/auth/login", "/actuator/health").permitAll()
+                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/verify-email", "/actuator/health").permitAll()
                 .requestMatchers("/api/places/**").permitAll()
                 .requestMatchers("/api/owner/**").hasRole("OWNER")
                 .requestMatchers("/api/waitlist/**").hasRole("CUSTOMER")

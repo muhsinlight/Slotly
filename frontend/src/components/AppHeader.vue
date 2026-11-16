@@ -23,6 +23,7 @@ function logout(): void {
         <RouterLink to="/waitlist">Bekleme listesi<span v-if="unreadOffers" class="notification-count">{{ unreadOffers }}</span></RouterLink>
       </template>
     </nav>
+    <RouterLink v-if="token" to="/account">Hesap ayarları</RouterLink>
     <button v-if="token" class="button quiet" @click="logout">Çıkış</button>
     <RouterLink v-else class="button quiet" :to="loginPath">Giriş yap</RouterLink>
   </header>

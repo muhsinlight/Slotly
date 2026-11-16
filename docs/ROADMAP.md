@@ -123,7 +123,7 @@ Her satır ayrı görev dalında uygulanır; görev büyürse bağımsız alt g�
 |---|---|---|
 | 1 | Bekleme teklifinde kapasite ayırma | Uygulandı; doğrudan rezervasyon/kabul yarışı, ret, süre sonu ve kapasite > 1 testleri. |
 | 2 | Tatil ve özel çalışma saatleri | Uygulandı; migration, API, işletme arayüzü ve rezervasyon engeli birlikte doğrulanır. |
-| 3 | E-posta doğrulama | Adres ekleme, tek kullanımlık/süreli doğrulama ve yeniden gönderim sınırı; sağlayıcı seçimi ve gerçek gönderim ayrı onay gerektirir. |
+| 3 | E-posta doğrulama | Uygulandı: hesap ekranı, adres ekleme, 30 dakikalık tek kullanımlık doğrulama, yeniden gönderim sınırı ve kalıcı gönderim kuyruğu. Sağlayıcı seçimi ve gerçek gönderim bekliyor. |
 | 4 | Şifre sıfırlama | Doğrulanmış adres üzerinden süreli/tek kullanımlık sıfırlama, hesap varlığını ifşa etmeyen yanıt ve kötüye kullanım sınırı. |
 | 5 | Teklif bildirimi | Doğrulanmış adres ve kullanıcı tercihi; teslimat/yeniden deneme ve mükerrer gönderim kontrolü. Gerçek dış gönderim ayrıca yetkilendirilir. |
 | 6 | Randevu hatırlatması | Bildirim altyapısı sonrası; zamanlama, iptal/değişiklik ve mükerrer gönderim testleri. |
