@@ -4,6 +4,9 @@ import com.slotly.api.module.booking.dto.request.AppointmentRequest;
 import com.slotly.api.module.booking.entity.AppointmentStatus;
 import com.slotly.api.module.booking.repository.AppointmentRepository;
 import com.slotly.api.module.booking.service.BookingService;
+import com.slotly.api.module.booking.service.AvailabilityService;
+import com.slotly.api.module.waitlist.service.WaitlistService;
+import com.slotly.api.module.place.service.PlaceService;
 import com.slotly.api.module.place.dto.request.CalendarExceptionRequest;
 import com.slotly.api.module.place.dto.request.PlaceRequest;
 import com.slotly.api.module.place.entity.BusinessHour;
@@ -67,6 +70,15 @@ class BookingServiceIntegrationTests {
 
     @Autowired
     private BookingService bookingService;
+
+    @Autowired
+    private AvailabilityService availabilityService;
+
+    @Autowired
+    private WaitlistService waitlistService;
+
+    @Autowired
+    private PlaceService placeService;
 
     @Autowired
     private BusinessCalendarService calendar;
@@ -173,7 +185,7 @@ class BookingServiceIntegrationTests {
         ));
         PlaceRequest update = new PlaceRequest("Changed", null, "Elsewhere", 1, true);
 
-        assertStatus(HttpStatus.FORBIDDEN, () -> bookingService.updatePlace(anotherOwner.getId(), place.getId(), update));
+        assertStatus(HttpStatus.FORBIDDEN, () -> placeService.updatePlace(anotherOwner.getId(), place.getId(), update));
     }
 
     @Test
@@ -182,7 +194,7 @@ class BookingServiceIntegrationTests {
         service.update(service.getName(), null, service.getPrice(), 30, service.getKind(), false);
         offerings.save(service);
 
-        var visibleOfferings = bookingService.ownerOfferings(owner.getId(), place.getId());
+        var visibleOfferings = placeService.ownerOfferings(owner.getId(), place.getId());
 
         assertEquals(1, visibleOfferings.size());
         assertFalse(visibleOfferings.getFirst().active());
@@ -231,11 +243,11 @@ class BookingServiceIntegrationTests {
         assertEquals("WAITING", waitlist.findById(second.id()).orElseThrow().getStatus().name());
 
         clock.advance(Duration.ofMinutes(31));
-        bookingService.expireOffers();
+        waitlistService.expireOffers();
         assertEquals("EXPIRED", waitlist.findById(first.id()).orElseThrow().getStatus().name());
         assertEquals("OFFERED", waitlist.findById(second.id()).orElseThrow().getStatus().name());
 
-        bookingService.acceptWaitlistOffer(thirdCustomer.getId(), second.id());
+        waitlistService.acceptWaitlistOffer(thirdCustomer.getId(), second.id());
         assertEquals("ACCEPTED", waitlist.findById(second.id()).orElseThrow().getStatus().name());
         assertEquals(2, appointmentsForThisPlace());
     }
@@ -291,7 +303,7 @@ class BookingServiceIntegrationTests {
                 waitlist.findById(entryId).orElseThrow();
                 try {
                     barrier.await(10, TimeUnit.SECONDS);
-                    bookingService.acceptWaitlistOffer(waiting.getId(), entryId);
+                    waitlistService.acceptWaitlistOffer(waiting.getId(), entryId);
                     return true;
                 } catch (ResponseStatusException exception) {
                     assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
@@ -315,9 +327,9 @@ class BookingServiceIntegrationTests {
         UUID entry = joinWaitlist(customerTwo, service, start).id();
         bookingService.cancel(customerOne.getId(), appointment);
 
-        assertFalse(bookingService.availability(place.getId(), service.getId(), start, start.plusSeconds(3600)).contains(start));
+        assertFalse(availabilityService.availability(place.getId(), service.getId(), start, start.plusSeconds(3600)).contains(start));
         assertStatus(HttpStatus.CONFLICT, () -> book(customerOne, shortService, start.plusSeconds(1800)));
-        bookingService.acceptWaitlistOffer(customerTwo.getId(), entry);
+        waitlistService.acceptWaitlistOffer(customerTwo.getId(), entry);
         assertEquals(1, bookingService.myAppointments(customerTwo.getId()).size());
     }
 
@@ -330,11 +342,11 @@ class BookingServiceIntegrationTests {
         UUID entry = joinWaitlist(customerTwo, service, start).id();
         bookingService.cancel(customerOne.getId(), appointment);
         if (decline) {
-            bookingService.declineWaitlistOffer(customerTwo.getId(), entry);
+            waitlistService.declineWaitlistOffer(customerTwo.getId(), entry);
         } else {
-            bookingService.leaveWaitlist(customerTwo.getId(), entry);
+            waitlistService.leaveWaitlist(customerTwo.getId(), entry);
         }
-        assertEquals(List.of(start), bookingService.availability(
+        assertEquals(List.of(start), availabilityService.availability(
             place.getId(), service.getId(), start, start.plusSeconds(1800)
         ));
     }
@@ -351,10 +363,10 @@ class BookingServiceIntegrationTests {
         clock.setInstant(waitlist.findById(first).orElseThrow().getOfferExpiresAt());
 
         assertStatus(HttpStatus.CONFLICT, () -> book(customerTwo, service, start));
-        bookingService.expireOffers();
+        waitlistService.expireOffers();
         assertEquals("EXPIRED", waitlist.findById(first).orElseThrow().getStatus().name());
         assertEquals("OFFERED", waitlist.findById(second).orElseThrow().getStatus().name());
-        bookingService.acceptWaitlistOffer(customerOne.getId(), second);
+        waitlistService.acceptWaitlistOffer(customerOne.getId(), second);
     }
 
     @Test
@@ -367,7 +379,7 @@ class BookingServiceIntegrationTests {
         CyclicBarrier barrier = new CyclicBarrier(2);
         Callable<Boolean> accept = () -> {
             barrier.await(10, TimeUnit.SECONDS);
-            bookingService.acceptWaitlistOffer(customerTwo.getId(), entry);
+            waitlistService.acceptWaitlistOffer(customerTwo.getId(), entry);
             return true;
         };
         List<Boolean> results = runConcurrently(bookAfterBarrier(barrier, customerOne, service, start), accept);
@@ -387,8 +399,8 @@ class BookingServiceIntegrationTests {
         bookingService.cancel(customerOne.getId(), first);
         bookingService.cancel(customerTwo.getId(), second);
         book(customerOne, service, start);
-        bookingService.acceptWaitlistOffer(owner.getId(), entry);
-        assertFalse(bookingService.availability(place.getId(), service.getId(), start, start.plusSeconds(1800)).contains(start));
+        waitlistService.acceptWaitlistOffer(owner.getId(), entry);
+        assertFalse(availabilityService.availability(place.getId(), service.getId(), start, start.plusSeconds(1800)).contains(start));
     }
 
     @Test
@@ -396,7 +408,7 @@ class BookingServiceIntegrationTests {
         Offering service = saveService(30);
         Instant start = at(10, 0);
         closeDate();
-        assertEquals(List.of(), bookingService.availability(place.getId(), service.getId(), start, start.plusSeconds(3600)));
+        assertEquals(List.of(), availabilityService.availability(place.getId(), service.getId(), start, start.plusSeconds(3600)));
         assertStatus(HttpStatus.BAD_REQUEST, () -> book(customerOne, service, start));
         assertStatus(HttpStatus.BAD_REQUEST, () -> joinWaitlist(customerOne, service, start));
         calendar.delete(owner.getId(), place.getId(), bookingDate);
@@ -409,7 +421,7 @@ class BookingServiceIntegrationTests {
         calendar.save(owner.getId(), place.getId(), bookingDate,
             new CalendarExceptionRequest(false, LocalTime.of(12, 15), LocalTime.of(13, 15)));
         Instant first = at(12, 15);
-        assertEquals(List.of(first, first.plusSeconds(1800)), bookingService.availability(
+        assertEquals(List.of(first, first.plusSeconds(1800)), availabilityService.availability(
             place.getId(), service.getId(), bookingDate.atStartOfDay(BUSINESS_ZONE).toInstant(),
             bookingDate.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant()
         ));
@@ -426,8 +438,8 @@ class BookingServiceIntegrationTests {
         assertEquals(0, calendar.list(owner.getId(), place.getId()).size());
         var hour = businessHours.findByPlaceIdOrderByDayOfWeekAscOpensAtAsc(place.getId()).getFirst();
         assertThrows(ResponseStatusException.class,
-            () -> bookingService.deleteHour(owner.getId(), place.getId(), hour.getId()));
-        assertEquals(1, bookingService.getHours(place.getId()).size());
+            () -> placeService.deleteHour(owner.getId(), place.getId(), hour.getId()));
+        assertEquals(1, placeService.getHours(place.getId()).size());
         bookingService.cancel(customerOne.getId(), appointment);
         closeDate();
     }
@@ -440,7 +452,7 @@ class BookingServiceIntegrationTests {
         UUID entry = joinWaitlist(customerTwo, service, start).id();
         bookingService.cancel(customerOne.getId(), appointment);
         assertStatus(HttpStatus.CONFLICT, this::closeDate);
-        bookingService.declineWaitlistOffer(customerTwo.getId(), entry);
+        waitlistService.declineWaitlistOffer(customerTwo.getId(), entry);
         closeDate();
     }
 
@@ -541,7 +553,7 @@ class BookingServiceIntegrationTests {
     }
 
     private void changeCapacity(int capacity) {
-        bookingService.updatePlace(owner.getId(), place.getId(), new PlaceRequest(
+        placeService.updatePlace(owner.getId(), place.getId(), new PlaceRequest(
             "Changed place", null, "Changed address", capacity, true
         ));
     }
@@ -561,7 +573,7 @@ class BookingServiceIntegrationTests {
     }
 
     private WaitlistResponse joinWaitlist(User customer, Offering service, Instant start) {
-        return bookingService.joinWaitlist(
+        return waitlistService.joinWaitlist(
             customer.getId(), new WaitlistRequest(place.getId(), service.getId(), start)
         );
     }

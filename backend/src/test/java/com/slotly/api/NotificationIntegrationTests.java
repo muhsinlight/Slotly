@@ -3,6 +3,7 @@ package com.slotly.api;
 import com.slotly.api.module.auth.service.AccountEmailService;
 import com.slotly.api.module.booking.dto.request.AppointmentRequest;
 import com.slotly.api.module.booking.service.BookingService;
+import com.slotly.api.module.waitlist.service.WaitlistService;
 import com.slotly.api.module.notification.service.*;
 import com.slotly.api.module.place.entity.*;
 import com.slotly.api.module.place.repository.*;
@@ -30,6 +31,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @ActiveProfiles("integration-test")
 @Import(NotificationIntegrationTests.GatewayConfig.class)
 class NotificationIntegrationTests {
+    @Autowired
+    private WaitlistService waitlistService;
+
     @Autowired
     private BookingService bookings;
     @Autowired
@@ -92,7 +96,7 @@ class NotificationIntegrationTests {
     @Test
     void declinedOfferAndRevokedConsentPreventDelivery() {
         var declined = offer(true);
-        bookings.declineWaitlistOffer(declined.customerId(), declined.entryId());
+        waitlistService.declineWaitlistOffer(declined.customerId(), declined.entryId());
         var optedOut = offer(true);
         notifications.savePreferences(optedOut.customerId(), new NotificationService.Preferences(false, false));
         drain();
@@ -134,7 +138,7 @@ class NotificationIntegrationTests {
     @Test
     void remindersRespectLeadTimeAndAreQueuedOnce() {
         var offer = offer(true);
-        var appointment = bookings.acceptWaitlistOffer(offer.customerId(), offer.entryId());
+        var appointment = waitlistService.acceptWaitlistOffer(offer.customerId(), offer.entryId());
         notifications.savePreferences(offer.customerId(), new NotificationService.Preferences(true, true, 2));
         moveAppointment(appointment.id(), Instant.now().plusSeconds(3 * 3600));
         reminders.queueDue();
@@ -150,7 +154,7 @@ class NotificationIntegrationTests {
     @Test
     void cancelledAndChangedAppointmentsSuppressOldReminders() {
         var offer = offer(true);
-        var appointment = bookings.acceptWaitlistOffer(offer.customerId(), offer.entryId());
+        var appointment = waitlistService.acceptWaitlistOffer(offer.customerId(), offer.entryId());
         notifications.savePreferences(offer.customerId(), new NotificationService.Preferences(true, true, 24));
         moveAppointment(appointment.id(), Instant.now().plusSeconds(3600));
         reminders.queueDue();
@@ -194,9 +198,9 @@ class NotificationIntegrationTests {
         hours.save(new BusinessHour(place, day.getDayOfWeek(), LocalTime.of(9, 0), LocalTime.of(18, 0)));
         Instant start = day.atTime(12, 0).atZone(ZoneId.of("Europe/Istanbul")).toInstant();
         var appointment = bookings.createAppointment(booked.getId(), new AppointmentRequest(place.getId(), offering.getId(), start));
-        var entry = bookings.joinWaitlist(waiting.getId(), new WaitlistRequest(place.getId(), offering.getId(), start));
+        var entry = waitlistService.joinWaitlist(waiting.getId(), new WaitlistRequest(place.getId(), offering.getId(), start));
         bookings.cancel(booked.getId(), appointment.id());
-        var offered = bookings.myWaitlist(waiting.getId()).getFirst();
+        var offered = waitlistService.myWaitlist(waiting.getId()).getFirst();
         return new WaitlistOfferEvent(waiting.getId(), entry.id(), offered.offerExpiresAt());
     }
 
