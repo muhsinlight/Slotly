@@ -4,6 +4,8 @@ import { request } from '../lib/api'
 
 defineProps<{ verified: boolean }>()
 const offerEmail = ref(false)
+const reminderEmail = ref(false)
+const reminderHours = ref(24)
 const busy = ref(false)
 const error = ref('')
 const message = ref('')
@@ -12,8 +14,10 @@ const labels: Record<string, string> = { PENDING: 'Gönderim bekliyor', SENT: 'G
 
 onMounted(async () => {
   try {
-    const preferences = await request<{ offerEmail: boolean }>('/account/notifications')
+    const preferences = await request<{ offerEmail: boolean; reminderEmail: boolean; reminderHours: number }>('/account/notifications')
     offerEmail.value = preferences.offerEmail
+    reminderEmail.value = preferences.reminderEmail
+    reminderHours.value = preferences.reminderHours
     deliveries.value = await request('/account/notifications/deliveries')
   } catch (cause) {
     error.value = (cause as Error).message
@@ -27,7 +31,7 @@ async function save(): Promise<void> {
   message.value = ''
   try {
     await request('/account/notifications', {
-      method: 'PUT', body: JSON.stringify({ offerEmail: offerEmail.value, reminderEmail: false }),
+      method: 'PUT', body: JSON.stringify({ offerEmail: offerEmail.value, reminderEmail: reminderEmail.value, reminderHours: reminderHours.value }),
     })
     message.value = 'Bildirim tercihlerin kaydedildi.'
   } catch (cause) {
@@ -45,6 +49,13 @@ async function save(): Promise<void> {
     <p v-if="!verified">Bildirimleri açmak için önce e-posta adresini doğrula.</p>
     <form @submit.prevent="save">
       <label><input v-model="offerEmail" type="checkbox" :disabled="!verified || busy"> Boşalan saat tekliflerini e-posta ile al</label>
+      <label><input v-model="reminderEmail" type="checkbox" :disabled="!verified || busy"> Randevu hatırlatmalarını e-posta ile al</label>
+      <label>Hatırlatma zamanı
+        <select v-model.number="reminderHours" :disabled="!verified || !reminderEmail || busy">
+          <option :value="24">24 saat önce</option>
+          <option :value="2">2 saat önce</option>
+        </select>
+      </label>
       <button class="button quiet" :disabled="busy">Tercihleri kaydet</button>
     </form>
     <p v-if="message" role="status">{{ message }}</p>
