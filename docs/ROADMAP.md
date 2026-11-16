@@ -1,6 +1,6 @@
 # Slotly geliştirme planı
 
-12 Kasım 2026. Mevcut kaynak kodu ve README üzerinden hazırlanmış plan ve uygulama durumu. Auth sayfalarının yeni sağ paneli kullanıcı tarafından görsel olarak beğenildi.
+16 Kasım 2026. Mevcut kaynak kodu üzerinden güncellenmiş plan. Aşağıdaki test sonuçları 12 Kasım doğrulamalarının tarihsel kaydıdır; bu belge güncellemesinde testler yeniden çalıştırılmadı.
 
 ## Uygulama durumu — 12 Kasım 2026
 
@@ -26,14 +26,14 @@ Bir işletmenin hizmetlerini ve takvimini yönetebildiği; müşterinin randevu 
 - Mekân, hizmet/ürün ve çalışma saatleri için backend uçları.
 - Hizmet süresine göre uygun saat bulma; kapasite kontrolüyle rezervasyon ve iptal.
 - FIFO bekleme listesi, 30 dakikalık teklif, kabul/ret ve süre dolunca sıradaki kişiye geçiş.
-- Ana ekranda temel müşteri ve işletme işlemleri; bekleme teklifleri için 30 saniyelik yenileme.
+- Ayrı müşteri, işletme ve bekleme listesi ekranları; SSE bildirimleri ve yedek yenileme.
 - Yerel geliştirme için PostgreSQL ve tek komutla servis başlatma.
 
-Backend işlevlerinin bulunması, bütün uç durumların otomatik testlerle doğrulandığı anlamına gelmez. Mevcut backend test dosyası yalnızca uygulama bağlamının açılmasını kontrol ediyor.
+Backend testleri uygulama bağlamına ek olarak kapasite, eşzamanlı istekler, FIFO, süre sonu, rol/sahiplik, giriş sınırı ve migration davranışlarını kapsar. Teklif ile doğrudan rezervasyon yarışı ve yeni ürün kuralları için kapsam genişletilecek.
 
-## 1. Müşterinin randevu yolculuğu — sıradaki geliştirme
+## 1. Müşterinin randevu yolculuğu — temel akış uygulandı
 
-**Neden:** Temel işlemler mevcut, fakat keşif, hesap, işletme yönetimi ve randevular tek ana ekran içinde toplanmış. Kullanıcıya sıradaki adımı açıkça göstermek ürünün en yakın kazanımı.
+**Durum:** Keşif, mekân detayı, randevular, işletme paneli ve bekleme listesi ayrı sayfalardır. Aşağıdaki kapsam, mevcut akışın korunacak tamamlanma ölçütlerini tanımlar.
 
 **Kapsam**
 
@@ -113,14 +113,34 @@ Backend işlevlerinin bulunması, bütün uç durumların otomatik testlerle do�
 
 1 → 2 → 3 → 4 → 5. Her aşama küçük, bağımsız görevler halinde doğrulanıp commit edilir. Takvim ve bildirim özelliklerinden önce temel müşteri akışı tamamlanır; pilot yayından önce güvenilirlik ve migration işleri bitirilir. Süre tahmini, aşama görevleri ve ürün kararları netleşince yapılır.
 
-İlk somut görev: **Mekân detay sayfası ve hizmet/tarih seçimi**, ardından **randevu özeti/onayı ve girişten geri dönüş**.
+İlk özellik görevi: **Teklif süresince kapasite ayırma**. Uygulama, aşağıdaki açık ürün kararının yanıtına bağlıdır.
+
+## Bağımsız görevler ve inceleme düzeni
+
+Her satır ayrı görev dalında uygulanır; görev büyürse bağımsız alt görevlere bölünür. İlgili kontroller geçince Conventional Commit ve push yapılır. GitHub CI başarılı olduktan sonra main'e birleştirilir ve biten dal temizlenir. Her commit sonrası dosya/metot, önce–sonra kod farkı, gerekçe, doğrulama sonucu ve commit bağlantısı kullanıcıya gösterilir.
+
+| Sıra | Görev | Tamamlanma ölçütü / bağımlılık |
+|---|---|---|
+| 1 | Bekleme teklifinde kapasite ayırma | Önce kapasite ayırma kararı; doğrudan rezervasyon/kabul yarışı, ret, süre sonu ve kapasite > 1 testleri. |
+| 2 | Tatil ve özel çalışma saatleri | Önce mevcut randevuyla çakışma kararı; migration, API, işletme arayüzü ve rezervasyon engeli birlikte doğrulanır. |
+| 3 | E-posta doğrulama | Adres ekleme, tek kullanımlık/süreli doğrulama ve yeniden gönderim sınırı; sağlayıcı seçimi ve gerçek gönderim ayrı onay gerektirir. |
+| 4 | Şifre sıfırlama | Doğrulanmış adres üzerinden süreli/tek kullanımlık sıfırlama, hesap varlığını ifşa etmeyen yanıt ve kötüye kullanım sınırı. |
+| 5 | Teklif bildirimi | Doğrulanmış adres ve kullanıcı tercihi; teslimat/yeniden deneme ve mükerrer gönderim kontrolü. Gerçek dış gönderim ayrıca yetkilendirilir. |
+| 6 | Randevu hatırlatması | Bildirim altyapısı sonrası; zamanlama, iptal/değişiklik ve mükerrer gönderim testleri. |
+| 7 | Randevu yeniden planlama | Eski randevu ile yeni kapasite atomik değişir; hata durumunda mevcut randevu korunur. İptal edilen saatin sıra davranışı kararlaştırılır. |
+| 8 | Tamamlandı / gelmedi durumları | Yetkili işletme işlemi, izin verilen durum geçişleri ve müşteri/işletme görünümü doğrulanır. |
+| 9 | Pilot hazırlığı | Hedef ortam, domain ve maliyet seçimi sonrası HTTPS, secret, izleme ve gerçek yedekten dönüş doğrulanır. |
+
+Çalışan takvimi, raporlar, gelişmiş keşif, takvime ekleme ve ödeme pilot geri bildirimine göre sıralanır.
+
+**Açık kararlar:** Teklif edilen bir kişilik kapasite kabul/ret veya 30 dakika sonuna kadar ayrılsın mı? Tatil/saat değişikliği mevcut randevuyla çakışınca değişiklik engellensin mi, yoksa mevcut randevular korunup yalnız yeni rezervasyonlar mı engellensin? Bu iki karar henüz verilmedi.
 
 ## Dayanaklar
 
 - [README](../README.md): mevcut API ve alan kuralları.
-- [HomePage.vue](../frontend/src/pages/HomePage.vue): tek ekranda toplanmış akışlar ve periyodik yenileme.
+- [HomePage.vue](../frontend/src/pages/HomePage.vue): mekân keşfi; [waitlist.ts](../frontend/src/composables/waitlist.ts): SSE ve yedek yenileme.
 - [router.ts](../frontend/src/router.ts), [auth.ts](../frontend/src/composables/auth.ts), [api.ts](../frontend/src/lib/api.ts): mevcut rotalar ve oturum/istek yönetimi.
-- [BookingService.java](../backend/src/main/java/com/slotly/api/module/booking/service/BookingService.java): kapasite, FIFO ve teklif davranışı.
-- [application.properties](../backend/src/main/resources/application.properties): mevcut Hibernate schema update yaklaşımı.
-- [SlotlyApiApplicationTests.java](../backend/src/test/java/com/slotly/api/SlotlyApiApplicationTests.java): mevcut otomatik test kapsamı.
+- [BookingServiceImpl.java](../backend/src/main/java/com/slotly/api/module/booking/service/impl/BookingServiceImpl.java): kapasite, FIFO ve teklif davranışı.
+- [application.properties](../backend/src/main/resources/application.properties): Flyway ve Hibernate schema validate ayarları.
+- [BookingServiceIntegrationTests.java](../backend/src/test/java/com/slotly/api/BookingServiceIntegrationTests.java): rezervasyon ve sıra testleri; diğer entegrasyon testleri backend/src/test altında.
 - [Cal.com](https://cal.com/) ve [SavvyCal](https://savvycal.com/): takvim ve rezervasyon akışını görünür kılan ürün sunumu örnekleri. Bu örnekler Slotly'nin alan kurallarını belirlemez.
