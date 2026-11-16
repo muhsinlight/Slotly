@@ -2,6 +2,14 @@
 
 [← Slotly](../README.md)
 
+## Servis sorumlulukları ve pilot sınırları
+
+Mekân/hizmet/haftalık saat yönetimi `PlaceService`, özel günler `BusinessCalendarService`, uygun saatler `AvailabilityService`, kapasite hesabı `BookingCapacityService`, randevu işlemleri `BookingService` ve FIFO/teklif akışı `WaitlistService` tarafından yönetilir. Controller'lar kullandıkları dar servis sözleşmesine bağlanır.
+
+Rezervasyon, teklif ve kapasite değişiklikleri aynı mekân satırını kilitler. Kontrol ve güncelleme aynı transaction içinde kalır; yalnız `@Transactional` eklemek eşzamanlı istekleri tek başına sıralamaz. Kapasite, devam eden/gelecek onaylı randevular ile aktif tekliflerin en yüksek eşzamanlı yükünden düşük olamaz. Ardışık kayıtların aynı ana denk gelen bitiş ve başlangıcı iki kapasite olarak sayılmaz.
+
+Pilot tek backend örneğine göre hazırlanmıştır. Giriş/kurtarma istek sınırları ve SSE abonelikleri süreç belleğindedir. Yeniden başlatmada hız sınırları sıfırlanır; birden fazla örnekte sınırlar paylaşılmaz ve teklif olayları diğer örneğin SSE bağlantısına doğrudan ulaşmaz. Frontend yedek yenilemesi bildirim gecikmesini azaltır. Yatay ölçeklemeden önce ortak hız sınırı ve örnekler arası olay dağıtımı gerekir. JWT'nin localStorage içinde saklanması ve oturum yenileme yaklaşımı pilot öncesinde değerlendirilecek açık karardır.
+
 ## Geliştirme kontrolleri
 
 Test, derleme ve push çıktıları varsayılan olarak terminalde tutulur. Dosyaya kayıt gerektiğinde proje kökünde log oluşturmayın; Git dışında tutulan `tmp/verification/` dizininde işlem başına sabit ad kullanın: `backend.log`, `build.log`, `browser.log`, `api.log` veya `push.log`. Her çalıştırmada aynı dosyanın üzerine yazın; özellik veya tarih içeren yeni adlarla dosya biriktirmeyin. Bu geçici çıktılar, aşağıda açıklanan backend çalışma loglarından ayrıdır.
@@ -56,7 +64,7 @@ Tarayıcı ortamı veritabanı için 5434, API için 8081 ve arayüz için 4173 
 
 ### Yedek ve geri yükleme
 
-Yerel backend test betiği ve CI, yalnızca geçici test veritabanında `pg_dump`/`pg_restore` denemesi yapar. Kopya `slotly_restore_test` veritabanında özel günler dahil yedi uygulama tablosunun kayıt sayıları ve içerik checksum'ları karşılaştırılır; ardından kopya kaldırılır. Bu kontrol canlı yedeklerin saklanması ve gerçek ortamda geri dönüş denemesinin yerine geçmez.
+Yerel backend test betiği ve CI, yalnızca geçici test veritabanında `pg_dump`/`pg_restore` denemesi yapar. Kopya `slotly_restore_test` veritabanında `backend/verify-restore.mjs` listesindeki tabloların tamamının kayıt sayıları ve içerik checksum'ları karşılaştırılır; ardından kopya kaldırılır. Bu kontrol canlı yedeklerin saklanması ve gerçek ortamda geri dönüş denemesinin yerine geçmez.
 
 Canlı PostgreSQL veritabanını düzenli yedekleyin, şifreli kopyayı veritabanı sunucusunun dışında tutun ve pilot öncesinde ayrı bir veritabanına geri yükleyerek deneyin. Geri yüklemeyi canlı veritabanının üzerine test etmeyin.
 

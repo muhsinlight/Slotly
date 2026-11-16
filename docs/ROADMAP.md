@@ -1,18 +1,18 @@
 # Slotly geliştirme planı
 
-16 Kasım 2026. Mevcut kaynak kodu üzerinden güncellenmiş plan. Durum tablosu ve aşağıdaki eski doğrulama özeti 12 Kasım kaydıdır. 16 Kasım ek doğrulaması: 27 backend testi, yedi tablo için restore, frontend build ve 4 mobil tarayıcı testi geçti.
+Bu dosya mevcut davranışı ve açık ürün kararlarını özetler. Test sonuçlarının kaynağı ilgili commit'in CI çalışmasıdır; farklı oturumların sonuçları güncel durum olarak birleştirilmez. Değişiklik yapan oturum yalnız kendi kapsamını günceller; başka dalda kalan veya doğrulanmamış işi tamamlandı olarak işaretlemez.
 
-## Uygulama durumu — 12 Kasım 2026
+## Mevcut uygulama durumu
 
 | Aşama | Uygulananlar | Açık kalanlar |
 |---|---|---|
 | 1. Müşteri akışı | Arama, mekân detayı, hizmet/tarih/saat, özet/onay, giriş ve kayıttan seçimle dönüş, ayrı randevu sayfası, iptal onayı, 401/oturum temizliği | Temel tamamlanma ölçütleri mobil tarayıcı testinde doğrulandı. |
-| 2. Güvenilirlik | İzole PostgreSQL, enjekte edilen saat, eşzamanlı rezervasyon/kabul, tekrar istekleri, kapasite ve süre çakışmaları, rol/sahiplik kontrolleri, CI ve gerçek API kullanan mobil testler | 16 Kasım: aktif teklif bir kişilik kapasite ayırır; doğrudan rezervasyon/kabul yarışı, süre sonu, ret ve kapasite > 1 testleri eklendi. |
-| 3. İşletme paneli | Ayrı panel, işletme seçimi, günlük/haftalık randevu listesi, mekân/hizmet düzenleme ve görünürlük, çalışma saati ekleme/silme, kurulum adımları | 16 Kasım: tarih istisnaları, Flyway V2 ve işletme formu eklendi. Mevcut randevu veya aktif teklifi geçersiz kılan takvim değişikliği engellenir. |
-| 4. Bekleme listesi | Ayrı ekran, Türkçe durumlar, sunucu bitiş zamanına göre sayaç, süre dolunca yeniden doğrulama, tüm sayfalarda teklif/okunmamış durumu, SSE heartbeat/yeniden bağlanma ve yedek yenileme | E-posta doğrulama/tercih ve teslimat akışı sonraki adımdır; dış bildirim sağlayıcısı kurulmadı. |
+| 2. Güvenilirlik | İzole PostgreSQL, enjekte edilen saat, eşzamanlı rezervasyon/kabul, teklif kapasitesi, kapasite azaltımında mevcut randevu ve aktif teklif koruması, rol/sahiplik testleri ve CI | Yeni alan kuralları ilgili testlerle eklenir. |
+| 3. İşletme paneli | Mekân/hizmet/saat yönetimi, günlük/haftalık liste ve özel günler; mevcut randevu ve teklifleri bozan takvim değişiklikleri engellenir | Yeniden planlama ve tamamlandı/gelmedi kuralları bekliyor. |
+| 4. Bekleme listesi ve hesap | FIFO, süreli teklif, SSE ve yedek yenileme; e-posta doğrulama, parola kurtarma, bildirim tercihleri, kalıcı gönderim kuyruğu ve 2/24 saat hatırlatma altyapısı | Sağlayıcı adaptörü ve gerçek doğrulama/kurtarma/teklif/hatırlatma e-postası teslimatı bekliyor. |
 | 5. Pilot hazırlık | Flyway V1, temiz kurulum ve mevcut kayıtları koruyan baseline testi, ortam API adresi, prod secret/CORS ayarları, giriş sınırı, sağlık/hata kayıtları, otomatik dump/restore kontrolü, ayrı demo | Gerçek canlı ortam, HTTPS proxy/domain, secret ve yedek saklama ayarları kurulmadı; sınırlı gerçek pilot başlamadı. |
 
-Doğrulamalar: 16 backend testi, 3 mobil Chromium akışı ve frontend TypeScript/üretim derlemesi. Yedek dönüşünde altı tablonun kayıt sayısı ve içerik checksum'ları karşılaştırılır. Demo açılışı, müşteri girişi ve örnek işletme/hizmetler ayrıca denendi. Bunlar bütün alan uç durumlarının tamamlandığı anlamına gelmez.
+Doğrulama komutları [DEVELOPMENT](DEVELOPMENT.md) içindedir. Yedek dönüşünde `backend/verify-restore.mjs` listesindeki tabloların kayıt sayıları ve içerik checksum'ları karşılaştırılır. Güncel test sayıları ve sonuçları ilgili çalıştırma raporundan okunur; burada tarihsel sayılar güncel sonuç gibi tutulmaz.
 
 GitHub CI'da Linux Maven Wrapper çalıştırma izni hatası düzeltildi; `.gitattributes` LF düzenini korur. Görev dallarında uzak kontroller geçmeden `main` birleşimi yapılmaz. Aşağıdaki özgün kapsam ve tamamlanma ölçütleri, açık işler bitene kadar korunur.
 
@@ -29,7 +29,7 @@ Bir işletmenin hizmetlerini ve takvimini yönetebildiği; müşterinin randevu 
 - Ayrı müşteri, işletme ve bekleme listesi ekranları; SSE bildirimleri ve yedek yenileme.
 - Yerel geliştirme için PostgreSQL ve tek komutla servis başlatma.
 
-Backend testleri uygulama bağlamına ek olarak kapasite, eşzamanlı istekler, FIFO, süre sonu, rol/sahiplik, giriş sınırı ve migration davranışlarını kapsar. Teklif ile doğrudan rezervasyon yarışı ve yeni ürün kuralları için kapsam genişletilecek.
+Backend testleri uygulama bağlamına ek olarak kapasite, eşzamanlı istekler, FIFO, süre sonu, rol/sahiplik, giriş sınırı ve migration davranışlarını kapsar. Teklif ile doğrudan rezervasyon yarışı testlerle kapsanır; yeni ürün kuralları ilgili testlerle birlikte eklenir.
 
 ## 1. Müşterinin randevu yolculuğu — temel akış uygulandı
 
