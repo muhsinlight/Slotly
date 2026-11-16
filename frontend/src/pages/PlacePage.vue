@@ -22,6 +22,11 @@ const error = ref('')
 const slotError = ref('')
 const selectedOffering = computed(() => offerings.value.find((item) => item.id === selectedOfferingId.value) || null)
 const customerAllowed = computed(() => !token.value || role.value === 'CUSTOMER')
+const startingPrice = computed(() => offerings.value.length
+  ? Math.min(...offerings.value.map((offering) => offering.price)) : null)
+const money = (value: number) => new Intl.NumberFormat('tr-TR', {
+  style: 'currency', currency: 'TRY', minimumFractionDigits: 0, maximumFractionDigits: 2,
+}).format(value)
 let ready = false
 let loadVersion = 0
 let slotController: AbortController | undefined
@@ -181,10 +186,30 @@ onBeforeUnmount(() => {
       <p v-else-if="error && !place" class="booking-error" role="alert">{{ error }} <button class="text-button" @click="loadPlace">Yeniden dene</button></p>
       <template v-else-if="place">
         <div class="booking-heading">
-          <span class="eyebrow">{{ place.address }}</span>
-          <h1>{{ place.name }}</h1>
-          <p>{{ place.description || 'Hizmet seçip sana uygun bir zaman bul.' }}</p>
+          <div class="place-intro">
+            <span class="place-monogram" aria-hidden="true">{{ place.name.charAt(0) }}</span>
+            <div>
+              <span class="eyebrow">{{ place.address }}</span>
+              <h1>{{ place.name }}</h1>
+              <p>{{ place.description || 'Hizmet seçip sana uygun bir zaman bul.' }}</p>
+              <div class="place-facts">
+                <span>{{ offerings.length }} hizmet</span>
+                <span v-if="startingPrice !== null">{{ money(startingPrice) }}'den başlayan fiyatlar</span>
+                <span>Online randevu</span>
+              </div>
+            </div>
+          </div>
+          <div class="place-intro-note">
+            <span class="eyebrow">SANA AYRILAN ZAMAN</span>
+            <h2>Gününü planla,<br>kendine yer aç.</h2>
+            <p>Hizmetini seç, uygun saatleri gör ve randevunu tek yerden takip et.</p>
+          </div>
         </div>
+        <ol class="booking-progress" aria-label="Randevu adımları">
+          <li :class="{ complete: selectedOffering }"><span>01</span><div><b>Hizmetini seç</b><small>Süre ve fiyatları karşılaştır</small></div></li>
+          <li :class="{ complete: selectedSlot }"><span>02</span><div><b>Zamanını belirle</b><small>Sana uygun gün ve saati bul</small></div></li>
+          <li><span>03</span><div><b>Randevunu onayla</b><small>Randevularım ekranından takip et</small></div></li>
+        </ol>
         <div class="booking-layout">
           <section class="booking-card">
             <h2>1. Hizmet seç</h2>
@@ -215,6 +240,7 @@ onBeforeUnmount(() => {
               <button class="text-button" :disabled="submitting || slotsLoading">{{ submitting ? 'Gönderiliyor…' : 'Bekleme listesine katıl' }}</button>
             </form>
           </section>
+          <div class="booking-sidebar">
           <aside class="booking-card booking-summary">
             <h2>Randevu özeti</h2>
             <dl>
@@ -231,8 +257,270 @@ onBeforeUnmount(() => {
             <small v-if="!token">Seçimin girişten sonra korunacak.</small>
             <small v-else-if="!customerAllowed">Randevu almak için müşteri hesabını kullan.</small>
           </aside>
+          <section class="booking-help">
+            <span class="eyebrow">PLANLAR DEĞİŞEBİLİR</span>
+            <h2>İstediğin saat doluysa sıranı al.</h2>
+            <p>Bekleme listesine katıl. Yer açıldığında sırana göre teklif gelir; kabul etmek için 30 dakikan olur.</p>
+            <div><span aria-hidden="true">↗</span> Tekliflerini Bekleme listesi ekranından takip edebilirsin.</div>
+          </section>
+          </div>
         </div>
+        <section v-if="offerings.length" class="place-services" aria-labelledby="place-services-title">
+          <div class="place-services-heading">
+            <div><span class="eyebrow">HİZMET MENÜSÜ</span><h2 id="place-services-title">Kendine uygun olanı bul</h2></div>
+            <p>Tüm hizmetleri incele, seçimini randevuna ekle.</p>
+          </div>
+          <div class="place-service-grid">
+            <button v-for="offering in offerings" :key="offering.id" class="place-service-tile" :class="{ chosen: selectedOfferingId === offering.id }" :aria-pressed="selectedOfferingId === offering.id" :disabled="submitting" @click="selectedOfferingId = offering.id">
+              <span class="service-tile-top"><span>{{ offering.durationMinutes }} dk</span><span>{{ selectedOfferingId === offering.id ? 'Seçili ✓' : 'Hizmeti seç ↗' }}</span></span>
+              <strong>{{ offering.name }}</strong>
+              <span class="service-tile-description">{{ offering.description || 'Uygun saatleri görmek için bu hizmeti seç.' }}</span>
+              <b>{{ money(offering.price) }}</b>
+            </button>
+          </div>
+        </section>
       </template>
     </main>
   </div>
 </template>
+
+<style scoped>
+.booking-page {
+  padding-top: 32px;
+}
+.booking-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 32px;
+  padding: 28px;
+  border: 1px solid #dce5d8;
+  border-radius: 12px;
+  background: linear-gradient(115deg, #edf3e8, #f6f6ed);
+  margin: 20px 0;
+}
+.place-intro {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+}
+.place-monogram {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 88px;
+  height: 104px;
+  border-radius: 44px 44px 12px 12px;
+  background: #d6e3cf;
+  color: var(--green);
+  font: 600 48px Manrope, sans-serif;
+}
+.booking-heading .eyebrow {
+  margin-bottom: 10px;
+}
+.booking-heading h1 {
+  font-size: clamp(28px, 3.5vw, 42px);
+  overflow-wrap: anywhere;
+}
+.booking-heading p {
+  font-size: 13px;
+  margin: 12px 0;
+}
+.place-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.place-facts span {
+  padding: 5px 10px;
+  background: #ffffffb3;
+  border-radius: 20px;
+  color: #48644b;
+  font-size: 11px;
+}
+.place-intro-note {
+  flex: 0 0 230px;
+  padding-left: 28px;
+  border-left: 1px solid #d6dfd1;
+}
+.place-intro-note h2 {
+  margin: 0;
+  color: var(--green);
+  font: 600 23px/1.4 Manrope, sans-serif;
+  letter-spacing: -.6px;
+}
+.booking-progress {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+}
+.booking-progress li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+.booking-progress li > span {
+  color: #84917f;
+  background: #edf0e8;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  padding: 10px;
+  font-size: 12px;
+}
+.booking-progress .complete > span {
+  background: var(--green);
+  color: white;
+}
+.booking-progress b, .booking-progress small {
+  display: block;
+}
+.booking-progress b {
+  font-size: 13px;
+  font-weight: 500;
+}
+.booking-progress small {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.booking-sidebar {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.booking-help {
+  padding: 24px;
+  background: #eef2e8;
+  border: 1px solid #e1e7d9;
+  border-radius: 8px;
+}
+.booking-help .eyebrow {
+  margin-bottom: 10px;
+}
+.booking-help h2 {
+  margin: 0;
+  font: 600 18px/1.5 Manrope, sans-serif;
+  color: #314d36;
+}
+.booking-help p, .booking-help div {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #65715e;
+}
+.booking-help div {
+  padding-top: 12px;
+  border-top: 1px solid #dce3d5;
+}
+.place-services {
+  margin-top: 36px;
+}
+.place-services-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.place-services-heading .eyebrow {
+  margin-bottom: 8px;
+}
+.place-services-heading h2 {
+  margin: 0;
+  font: 600 24px Manrope, sans-serif;
+  letter-spacing: -.6px;
+}
+.place-services-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.place-service-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.place-service-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 14px;
+  text-align: left;
+  padding: 22px;
+  background: white;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.place-service-tile:hover, .place-service-tile.chosen {
+  border-color: #789a7c;
+  background: #f3f7ef;
+}
+.place-service-tile:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+.service-tile-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  font-size: 11px;
+  color: var(--green);
+}
+.place-service-tile strong {
+  font: 600 17px Manrope, sans-serif;
+}
+.service-tile-description {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.place-service-tile > b {
+  margin-top: auto;
+  font-size: 18px;
+  color: var(--green);
+}
+@media (max-width: 1000px) {
+  .place-intro-note {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .booking-heading {
+    padding: 20px;
+  }
+  .place-monogram {
+    display: none;
+  }
+  .booking-progress {
+    gap: 8px;
+  }
+  .booking-progress li {
+    flex-direction: column;
+    align-items: start;
+    gap: 8px;
+  }
+  .booking-progress b {
+    font-size: 11px;
+  }
+  .booking-progress small {
+    display: none;
+  }
+  .place-service-grid {
+    grid-template-columns: 1fr;
+  }
+  .place-services-heading {
+    display: block;
+  }
+  .place-services-heading p {
+    margin-top: 10px;
+  }
+}
+</style>
