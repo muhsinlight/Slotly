@@ -73,7 +73,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 var user = users.findById(java.util.UUID.fromString(subject))
                     .orElseThrow(() -> new JwtException("Account no longer exists"));
                 Number version = claims.get("version", Number.class);
-                if (user.getAuthVersion() != (version == null ? 0 : version.longValue())) {
+                if (user.getRole().name().equals(role) == false || user.getAuthVersion() != (version == null ? 0 : version.longValue())) {
                     throw new JwtException("Session has been revoked");
                 }
 
@@ -99,6 +99,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private boolean isSupportedRole(String role) {
-        return "OWNER".equals(role) || "CUSTOMER".equals(role);
+        return "OWNER".equals(role) || "CUSTOMER".equals(role) || "ADMIN".equals(role);
     }
 }
