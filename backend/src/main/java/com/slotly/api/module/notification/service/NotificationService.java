@@ -30,7 +30,16 @@ public class NotificationService {
         this.frontendUrl = frontendUrl.replaceAll("/$", "");
     }
 
-    public record Preferences(boolean offerEmail, boolean reminderEmail) {
+    public record Preferences(boolean offerEmail, boolean reminderEmail, Integer reminderHours) {
+        public Preferences(boolean offerEmail, boolean reminderEmail) {
+            this(offerEmail, reminderEmail, 24);
+        }
+
+        public Preferences {
+            if (reminderHours == null) {
+                reminderHours = 24;
+            }
+        }
     }
 
     public record Delivery(UUID id, String subject, String state, Instant createdAt) {
@@ -38,22 +47,26 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public Preferences preferences(UUID userId) {
-        return jdbc.query("SELECT offer_email, reminder_email FROM notification_preferences WHERE id = ?",
-            (row, index) -> new Preferences(row.getBoolean(1), row.getBoolean(2)), userId)
+        return jdbc.query("SELECT offer_email, reminder_email, reminder_hours FROM notification_preferences WHERE id = ?",
+            (row, index) -> new Preferences(row.getBoolean(1), row.getBoolean(2), row.getInt(3)), userId)
             .stream().findFirst().orElse(new Preferences(false, false));
     }
 
     @Transactional
     public void savePreferences(UUID userId, Preferences preferences) {
+        if (preferences.reminderHours() != 2 && preferences.reminderHours() != 24) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hatırlatma 2 veya 24 saat önce olabilir.");
+        }
         jdbc.queryForList("SELECT id FROM app_users WHERE id = ? FOR UPDATE", userId);
         if ((preferences.offerEmail() || preferences.reminderEmail()) && jdbc.queryForObject(
             "SELECT count(*) FROM account_emails WHERE id = ? AND verified = true", Integer.class, userId) == 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Önce e-posta adresini doğrula.");
         }
         jdbc.update("""
-            INSERT INTO notification_preferences(id, offer_email, reminder_email) VALUES (?, ?, ?)
-            ON CONFLICT (id) DO UPDATE SET offer_email = excluded.offer_email, reminder_email = excluded.reminder_email
-            """, userId, preferences.offerEmail(), preferences.reminderEmail());
+            INSERT INTO notification_preferences(id, offer_email, reminder_email, reminder_hours) VALUES (?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET offer_email = excluded.offer_email,
+                reminder_email = excluded.reminder_email, reminder_hours = excluded.reminder_hours
+            """, userId, preferences.offerEmail(), preferences.reminderEmail(), preferences.reminderHours());
     }
 
     @Transactional(readOnly = true)

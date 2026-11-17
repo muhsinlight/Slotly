@@ -10,6 +10,7 @@ import WaitlistPage from './pages/WaitlistPage.vue'
 import AccountPage from './pages/AccountPage.vue'
 import VerifyEmailPage from './pages/VerifyEmailPage.vue'
 import PasswordRecoveryPage from './pages/PasswordRecoveryPage.vue'
+import AdminPage from './pages/AdminPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -17,6 +18,7 @@ const router = createRouter({
     { path: '/forgot-password', component: PasswordRecoveryPage },
     { path: '/reset-password', component: PasswordRecoveryPage },
     { path: '/account', component: AccountPage, meta: { requiresAuth: true } },
+    { path: '/admin', component: AdminPage, meta: { requiresAuth: true, requiresAdmin: true } },
     { path: '/verify-email', component: VerifyEmailPage },
     { path: '/', name: 'home', component: HomePage },
     { path: '/login', name: 'login', component: LoginPage },
@@ -40,6 +42,10 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.requiresOwner && role.value !== 'OWNER') {
+    return { name: 'home' }
+  }
+
+  if (to.meta.requiresAdmin && role.value !== 'ADMIN') {
     return { name: 'home' }
   }
 

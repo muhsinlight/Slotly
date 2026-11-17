@@ -67,6 +67,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
                 .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/verify-email", "/actuator/health").permitAll()
                 .requestMatchers("/api/places/**").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/owner/**").hasRole("OWNER")
                 .requestMatchers("/api/waitlist/**").hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.POST, "/api/appointments").hasRole("CUSTOMER")

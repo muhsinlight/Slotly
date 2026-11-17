@@ -41,7 +41,12 @@ onMounted(loadPlaces)
           <a class="button primary" href="#places">Mekânları keşfet <span>↗</span></a>
         </div>
         <div class="hero-note"><span class="sun">✳</span><div><b>Planların netleşsin.</b><small>Randevun birkaç adım uzağında.</small></div></div>
-        <div class="hero-orb" />
+        <div class="hero-preview" aria-hidden="true">
+          <div class="hero-preview-top"><span>✦</span><span>PROGRAMIN</span><span>•••</span></div>
+          <div class="hero-preview-date">Bugün kendine<br><strong>zaman ayır.</strong></div>
+          <div class="hero-preview-card"><span class="hero-preview-icon">◷</span><div><b>Yeni bir başlangıç</b><small>Sana uygun saatler bir arada</small></div><span>↗</span></div>
+          <div class="hero-preview-days"><span>PZT</span><span>SAL</span><span class="active">ÇAR</span><span>PER</span><span>CUM</span></div>
+        </div>
       </section>
       <section v-if="!token" class="account section">
         <div><span class="eyebrow">SLOTLY'YE KATIL</span><h2>Randevularını tek yerden yönet.</h2><p>Slotly hesabınla sana uygun zamanı bul ve planlarını kolayca takip et.</p></div>

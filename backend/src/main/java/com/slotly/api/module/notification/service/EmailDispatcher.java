@@ -22,14 +22,24 @@ public class EmailDispatcher {
 
     @Transactional
     public boolean deliverNext() {
+        return deliver(null);
+    }
+
+    @Transactional
+    public boolean deliver(UUID messageId) {
         EmailGateway provider = gateway.getIfAvailable();
         if (provider == null) {
             return false;
         }
-        var rows = jdbc.queryForList("""
-            SELECT * FROM email_outbox WHERE state = 'PENDING' AND next_attempt_at <= ?
-            ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1
-            """, Timestamp.from(clock.instant()));
+        var rows = messageId == null
+            ? jdbc.queryForList("""
+                SELECT * FROM email_outbox WHERE state = 'PENDING' AND next_attempt_at <= ?
+                ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1
+                """, Timestamp.from(clock.instant()))
+            : jdbc.queryForList("""
+                SELECT * FROM email_outbox WHERE id = ? AND state = 'PENDING' AND next_attempt_at <= ?
+                FOR UPDATE SKIP LOCKED
+                """, messageId, Timestamp.from(clock.instant()));
         if (rows.isEmpty()) {
             return false;
         }
@@ -63,7 +73,14 @@ public class EmailDispatcher {
                 JOIN notification_preferences p ON p.id = e.id
                 WHERE w.id = o.reference_id AND w.status = 'OFFERED' AND w.offer_expires_at > ?
                     AND e.verified = true AND e.email = o.recipient AND p.offer_email = true
+            ) WHEN o.kind = 'REMINDER' THEN EXISTS (
+                SELECT 1 FROM appointments a JOIN account_emails e ON e.id = a.customer_id
+                JOIN notification_preferences p ON p.id = e.id
+                WHERE a.id = o.reference_id AND a.status = 'CONFIRMED'
+                    AND a.starts_at = o.expires_at AND a.starts_at > ?
+                    AND e.verified = true AND e.email = o.recipient AND p.reminder_email = true
             ) ELSE false END FROM email_outbox o WHERE o.id = ?
-            """, Boolean.class, Timestamp.from(clock.instant()), Timestamp.from(clock.instant()), id));
+            """, Boolean.class, Timestamp.from(clock.instant()), Timestamp.from(clock.instant()),
+            Timestamp.from(clock.instant()), id));
     }
 }
