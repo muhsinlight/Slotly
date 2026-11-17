@@ -18,6 +18,7 @@ function logout(): void {
     <nav aria-label="Ana menü">
       <RouterLink to="/">Mekânlar</RouterLink>
       <RouterLink v-if="token && role === 'OWNER'" to="/owner">İşletme paneli</RouterLink>
+      <RouterLink v-if="token && role === 'ADMIN'" to="/admin">Yönetim paneli</RouterLink>
       <template v-if="token && role === 'CUSTOMER'">
         <RouterLink to="/appointments">Randevularım</RouterLink>
         <RouterLink to="/waitlist">Bekleme listesi<span v-if="unreadOffers" class="notification-count">{{ unreadOffers }}</span></RouterLink>
