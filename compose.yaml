@@ -15,5 +15,19 @@
       interval: 5s
       timeout: 3s
       retries: 10
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    profiles: ["messaging"]
+    environment:
+      RABBITMQ_DEFAULT_USER: slotly
+      RABBITMQ_DEFAULT_PASS: slotly
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 volumes:
   slotly-postgres-data:
