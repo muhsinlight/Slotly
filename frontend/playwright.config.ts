@@ -24,7 +24,7 @@ export default defineConfig({
       command: 'java -jar ../backend/target/slotly-api-0.0.1-SNAPSHOT.jar',
       url: 'http://127.0.0.1:8081/actuator/health',
       reuseExistingServer: false,
-      timeout: 240_000,
+      timeout: 120_000,
       env: {
         SPRING_PROFILES_ACTIVE: 'e2e',
         SERVER_PORT: '8081',
