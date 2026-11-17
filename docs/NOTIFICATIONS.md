@@ -7,3 +7,5 @@ Aktif teklif olayı rezervasyon işlemiyle aynı transaction içinde outbox kayd
 Gönderim işçisi satır kilidi ve SKIP LOCKED kullanır; başarısızlıkta 1, 2, 4 ve 8 dakika aralıklarla yeniden dener, beşinci başarısızlıkta FAILED olur. Başarıda mesaj gövdesi temizlenir. Hesap bağlantılarında tüketilmiş/süresi dolmuş tokenlar gönderilmez.
 
 Gerçek dış gönderim kapalıdır (`slotly.email.enabled=false`). Sağlayıcı seçilmediği için üretim `EmailGateway` adaptörü yoktur. Yetkilendirilen adaptör mesaj UUID'sini sağlayıcının idempotency anahtarı olarak kullanmalıdır. Sağlayıcı bunu desteklemiyorsa gönderimden sonra DB commit'i öncesi çökme durumunda tekrar teslim riski vardır; bu sınır sağlayıcı seçiminde çözülmelidir. Testler yalnız sahte, yerel gateway kullanır.
+
+Randevu hatırlatmaları `REMINDER` türünde aynı outbox ve gönderim işçisini kullanır. Tercih edilen 2/24 saat aralığında kuyruğa alınır; randevu iptali/saat değişikliği ve güncel adres/tercih gönderim anında yeniden doğrulanır. Ayrıntı: [REMINDERS](REMINDERS.md).
