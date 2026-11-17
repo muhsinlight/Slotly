@@ -1,5 +1,6 @@
 package com.slotly.api.module.place.service;
 
+import com.slotly.api.common.aop.OwnedPlace;
 import com.slotly.api.module.booking.service.BookingCapacityService;
 import com.slotly.api.module.place.dto.request.BusinessHourRequest;
 import com.slotly.api.module.place.dto.request.OfferingRequest;
@@ -82,9 +83,10 @@ public class PlaceServiceImpl implements PlaceService {
     }
 
     @Transactional
+    @OwnedPlace(lock = true)
     public PlaceResponse updatePlace(UUID ownerId, UUID placeId, PlaceRequest request) {
-        Place place = places.findLockedById(placeId).orElseThrow(() -> notFound("Place not found"));
-        requireOwnedPlace(ownerId, placeId);
+        Place place = requirePlace(placeId);
+
         if (request.capacity() < place.getCapacity()) {
             capacity.validateCapacityReduction(placeId, request.capacity());
         }
@@ -99,8 +101,9 @@ public class PlaceServiceImpl implements PlaceService {
     }
 
     @Transactional
+    @OwnedPlace
     public void deletePlace(UUID ownerId, UUID placeId) {
-        Place place = requireOwnedPlace(ownerId, placeId);
+        Place place = requirePlace(placeId);
         place.update(place.getName(), place.getDescription(), place.getAddress(), place.getCapacity(), false);
     }
 
@@ -113,8 +116,9 @@ public class PlaceServiceImpl implements PlaceService {
     }
 
     @Transactional(readOnly = true)
+    @OwnedPlace
     public List<OfferingResponse> ownerOfferings(UUID ownerId, UUID placeId) {
-        requireOwnedPlace(ownerId, placeId);
+
         return offerings.findByPlaceIdOrderByNameAsc(placeId)
             .stream()
             .map(OfferingResponse::from)
@@ -122,8 +126,9 @@ public class PlaceServiceImpl implements PlaceService {
     }
 
     @Transactional
+    @OwnedPlace
     public OfferingResponse createOffering(UUID ownerId, UUID placeId, OfferingRequest request) {
-        Place place = requireOwnedPlace(ownerId, placeId);
+        Place place = requirePlace(placeId);
         validateOffering(request);
         Offering offering = new Offering(
             place,
@@ -137,13 +142,14 @@ public class PlaceServiceImpl implements PlaceService {
     }
 
     @Transactional
+    @OwnedPlace
     public OfferingResponse updateOffering(
         UUID ownerId,
         UUID placeId,
         UUID offeringId,
         OfferingRequest request
     ) {
-        Place place = requireOwnedPlace(ownerId, placeId);
+        Place place = requirePlace(placeId);
         Offering offering = requireOffering(offeringId);
         ensureOfferingBelongsToPlace(offering, place);
         validateOffering(request);
@@ -159,8 +165,9 @@ public class PlaceServiceImpl implements PlaceService {
     }
 
     @Transactional
+    @OwnedPlace
     public void deleteOffering(UUID ownerId, UUID placeId, UUID offeringId) {
-        Place place = requireOwnedPlace(ownerId, placeId);
+        Place place = requirePlace(placeId);
         Offering offering = requireOffering(offeringId);
         ensureOfferingBelongsToPlace(offering, place);
         offering.update(
@@ -183,9 +190,10 @@ public class PlaceServiceImpl implements PlaceService {
     }
 
     @Transactional
+    @OwnedPlace(lock = true)
     public BusinessHourResponse addHour(UUID ownerId, UUID placeId, BusinessHourRequest request) {
-        Place place = places.findLockedById(placeId).orElseThrow(() -> notFound("Place not found"));
-        requireOwnedPlace(ownerId, placeId);
+        Place place = requirePlace(placeId);
+
         if (!request.opensAt().isBefore(request.closesAt())) {
             throw bad("Closing time must be after opening time");
         }
@@ -225,14 +233,6 @@ public class PlaceServiceImpl implements PlaceService {
 
     private Place requirePlace(UUID id) {
         return places.findById(id).orElseThrow(() -> notFound("Place not found"));
-    }
-
-    private Place requireOwnedPlace(UUID ownerId, UUID placeId) {
-        Place place = requirePlace(placeId);
-        if (!place.getOwner().getId().equals(ownerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Place belongs to another owner");
-        }
-        return place;
     }
 
     private Offering requireOffering(UUID id) {

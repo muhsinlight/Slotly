@@ -102,3 +102,14 @@ Konsol kısa hata izi gösterir; tam stack trace çalışma dizinine göre logs/
 
 Dosyalar günlük veya 10 MB olduğunda döner; 14 günlük geçmiş ve toplam 200 MB sınırı uygulanır. Dizin slotly.logging.directory ile değiştirilebilir. Paket ayrıntısı gerektiğinde logging.level.org.springframework=DEBUG gibi bir ayarla geçici açılabilir. Log dosyaları teknik hata mesajları içerebilir; erişimi sınırlandırın.
 
+
+### Servis AOP
+Servis proxy çağrıları süre ve sonuç türünü DEBUG seviyesinde kaydeder.
+Açmak için logging.level.com.slotly.api.common.aop.ServiceLoggingAspect=DEBUG kullanılır.
+Argümanlar, dönüş değerleri ve hata mesajları bu kayda eklenmez.
+@OwnedPlace ilk iki UUID argümanı ownerId/placeId olan mekân ve randevu listeleme
+metotlarında sahipliği doğrular; lock=true mevcut mekân kilidini korur.
+Sıra: log (-10), transaction (0), sahiplik (10), servis gövdesi.
+Proxy içinden yapılan aynı nesne çağrıları AOP'den geçmez.
+Randevu kimliğinden sahiplik çıkaran sonuç/iptal işlemleri ve takvim kuralları
+mevcut açık kontrollerini korur.

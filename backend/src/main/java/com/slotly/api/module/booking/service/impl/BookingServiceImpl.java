@@ -1,5 +1,6 @@
 package com.slotly.api.module.booking.service.impl;
 
+import com.slotly.api.common.aop.OwnedPlace;
 import com.slotly.api.module.booking.dto.request.AppointmentRequest;
 import com.slotly.api.module.booking.dto.response.AppointmentResponse;
 import com.slotly.api.module.booking.entity.Appointment;
@@ -122,8 +123,9 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Transactional(readOnly = true)
+    @OwnedPlace
     public List<AppointmentResponse> ownerAppointments(UUID ownerId, UUID placeId, Instant from, Instant to) {
-        requireOwnedPlace(ownerId, placeId);
+
         if (!from.isBefore(to)) {
             throw bad("Invalid time range");
         }
@@ -159,14 +161,6 @@ public class BookingServiceImpl implements BookingService {
 
     private Place requirePlace(UUID id) {
         return places.findById(id).orElseThrow(() -> notFound("Place not found"));
-    }
-
-    private Place requireOwnedPlace(UUID ownerId, UUID placeId) {
-        Place place = requirePlace(placeId);
-        if (!place.getOwner().getId().equals(ownerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Place belongs to another owner");
-        }
-        return place;
     }
 
     private Offering requireOffering(UUID id) {
