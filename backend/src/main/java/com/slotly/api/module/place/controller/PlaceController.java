@@ -6,8 +6,6 @@ import com.slotly.api.module.place.dto.request.PlaceRequest;
 import com.slotly.api.module.place.dto.response.BusinessHourResponse;
 import com.slotly.api.module.place.dto.response.OfferingResponse;
 import com.slotly.api.module.place.dto.response.PlaceResponse;
-import com.slotly.api.module.place.entity.Offering;
-import com.slotly.api.module.place.entity.Place;
 
 import com.slotly.api.module.booking.service.AvailabilityService;
 import com.slotly.api.module.place.service.PlaceService;

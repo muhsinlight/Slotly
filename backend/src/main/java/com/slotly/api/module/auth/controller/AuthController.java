@@ -1,6 +1,5 @@
 package com.slotly.api.module.auth.controller;
 
-import com.slotly.api.module.user.entity.User;
 
 import com.slotly.api.module.auth.dto.request.LoginRequest;
 import com.slotly.api.module.auth.dto.request.RegisterRequest;

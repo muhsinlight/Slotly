@@ -159,10 +159,6 @@ public class BookingServiceImpl implements BookingService {
         return AppointmentResponse.from(appointment);
     }
 
-    private Place requirePlace(UUID id) {
-        return places.findById(id).orElseThrow(() -> notFound("Place not found"));
-    }
-
     private Offering requireOffering(UUID id) {
         return offerings.findById(id).orElseThrow(() -> notFound("Offering not found"));
     }
