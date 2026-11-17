@@ -9,6 +9,7 @@ Bir randevu iptal edildiğinde boşalan saat, bekleme listesindeki sıradaki mü
 - Mekân ve hizmet keşfi, uygun saat seçimi ve randevu iptali.
 - İlk gelenin önce teklif aldığı bekleme listesi ve anlık teklif bildirimleri.
 - İşletmeler için hizmet/ürün, çalışma saati ve günlük/haftalık randevu yönetimi.
+- Yöneticiler için tüm işletmelerin randevu ve bekleme kayıtlarını gösteren salt okunur panel.
 - Müşteri ve işletme sahibi rolleriyle JWT kimlik doğrulama.
 
 ## Teknolojiler
@@ -37,6 +38,8 @@ E-posta sağlayıcısı bağlı değilken kuyruk iş taşır, gerçek e-posta g�
 - Sağlık kontrolü: http://localhost:8080/actuator/health
 
 Arayüzden işletme sahibi hesabı oluşturun; mekân, çalışma saatleri ve hizmet ekleyin. Randevu almak için müşteri hesabıyla giriş yapın. Hazır hesaplarla denemek için [ayrı demo ortamını](docs/SETUP.md#ayrı-demo-ortamı) kullanabilirsiniz.
+
+İlk yönetici hesabını oluşturmak için API'yi başlatmadan önce `SLOTLY_ADMIN_USERNAME` ve en az 12 karakterli `SLOTLY_ADMIN_PASSWORD` ortam değişkenlerini ayarlayın. Uygulama hesabı yalnızca yoksa oluşturur; sonraki açılışlarda parolayı değiştirmez. Bu hesapla giriş yaptıktan sonra `/admin` paneli tüm işletmelerin randevu ve bekleme kayıtlarını gösterir. Açık kayıt formu yönetici rolünü kabul etmez.
 
 `Ctrl+C` uygulamaları durdurur. PostgreSQL’i durdurmak için `docker compose down` çalıştırın; kayıtlı veriler korunur.
 

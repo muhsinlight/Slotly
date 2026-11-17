@@ -9,6 +9,8 @@ import java.util.UUID;
 import java.util.Collection;
 
 public interface WaitlistRepository extends JpaRepository<WaitlistEntry, UUID> {
+    @EntityGraph(attributePaths = {"customer", "place", "offering"})
+    List<WaitlistEntry> findAllByOrderByCreatedAtDesc();
     List<WaitlistEntry> findByPlaceIdAndStatusAndOfferExpiresAtGreaterThan(UUID placeId, WaitlistStatus status, Instant now);
 
     List<WaitlistEntry> findByCustomerIdOrderByCreatedAtDesc(UUID customerId);

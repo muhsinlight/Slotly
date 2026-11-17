@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.time.Instant;
 import java.util.*;
 public interface AppointmentRepository extends JpaRepository<Appointment, UUID> {
+    @EntityGraph(attributePaths = {"customer", "place", "offering"})
+    List<Appointment> findAllByOrderByStartsAtDesc();
     List<Appointment> findByPlaceIdAndStatusAndEndsAtGreaterThan(UUID placeId, AppointmentStatus status, Instant now);
 
     List<Appointment> findByPlaceIdAndStatusAndStartsAtLessThanAndEndsAtGreaterThan(

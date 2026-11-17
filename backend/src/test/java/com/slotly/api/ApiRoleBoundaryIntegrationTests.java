@@ -1,6 +1,7 @@
 package com.slotly.api;
 
 import com.slotly.api.module.auth.dto.request.LoginRequest;
+import com.slotly.api.module.auth.dto.request.RegisterRequest;
 import com.slotly.api.module.user.entity.User;
 import com.slotly.api.module.user.entity.UserRole;
 import com.slotly.api.module.user.repository.UserRepository;
@@ -19,6 +20,7 @@ import java.util.UUID;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -58,6 +60,22 @@ class ApiRoleBoundaryIntegrationTests {
             .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/waitlist/me").header("Authorization", "Bearer " + owner))
             .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminOverviewIsPrivateAndPublicRegistrationCannotCreateAdmin() throws Exception {
+        String customer = tokenFor(UserRole.CUSTOMER);
+        String admin = tokenFor(UserRole.ADMIN);
+
+        mockMvc.perform(get("/api/admin/overview")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/admin/overview").header("Authorization", "Bearer " + customer))
+            .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/admin/overview").header("Authorization", "Bearer " + admin))
+            .andExpect(status().isOk());
+
+        assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> auth.register(
+            new RegisterRequest("admin-public", "AdminTest2026!", "Admin", "Test", UserRole.ADMIN)
+        ));
     }
 
     private String tokenFor(UserRole role) {
