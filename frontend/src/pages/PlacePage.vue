@@ -294,9 +294,9 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 32px;
   padding: 28px;
-  border: 1px solid #dce5d8;
+  border: 1px solid #ded3f7;
   border-radius: 12px;
-  background: linear-gradient(115deg, #edf3e8, #f6f6ed);
+  background: linear-gradient(115deg, #f1e9ff, #e8f3ff);
   margin: 20px 0;
 }
 .place-intro {
@@ -312,7 +312,7 @@ onBeforeUnmount(() => {
   width: 88px;
   height: 104px;
   border-radius: 44px 44px 12px 12px;
-  background: #d6e3cf;
+  background: #e4d4ff;
   color: var(--green);
   font: 600 48px Manrope, sans-serif;
 }
@@ -336,13 +336,13 @@ onBeforeUnmount(() => {
   padding: 5px 10px;
   background: #ffffffb3;
   border-radius: 20px;
-  color: #48644b;
+  color: #6547a8;
   font-size: 11px;
 }
 .place-intro-note {
   flex: 0 0 230px;
   padding-left: 28px;
-  border-left: 1px solid #d6dfd1;
+  border-left: 1px solid #d9c9f3;
 }
 .place-intro-note h2 {
   margin: 0;
@@ -365,8 +365,8 @@ onBeforeUnmount(() => {
   padding: 12px 0;
 }
 .booking-progress li > span {
-  color: #84917f;
-  background: #edf0e8;
+  color: #7b7192;
+  background: #f1ebfb;
   border: 1px solid var(--line);
   border-radius: 50%;
   padding: 10px;
@@ -395,9 +395,9 @@ onBeforeUnmount(() => {
 }
 .booking-help {
   padding: 24px;
-  background: #eef2e8;
-  border: 1px solid #e1e7d9;
-  border-radius: 8px;
+  background: #f1ebff;
+  border: 1px solid #ded3f5;
+  border-radius: 16px;
 }
 .booking-help .eyebrow {
   margin-bottom: 10px;
@@ -405,16 +405,16 @@ onBeforeUnmount(() => {
 .booking-help h2 {
   margin: 0;
   font: 600 18px/1.5 Manrope, sans-serif;
-  color: #314d36;
+  color: #3d286e;
 }
 .booking-help p, .booking-help div {
   font-size: 12px;
   line-height: 1.8;
-  color: #65715e;
+  color: #66577f;
 }
 .booking-help div {
   padding-top: 12px;
-  border-top: 1px solid #dce3d5;
+  border-top: 1px solid #ded3f5;
 }
 .place-services {
   margin-top: 36px;
@@ -454,13 +454,13 @@ onBeforeUnmount(() => {
   background: white;
   color: var(--ink);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 16px;
   cursor: pointer;
   overflow-wrap: anywhere;
 }
 .place-service-tile:hover, .place-service-tile.chosen {
-  border-color: #789a7c;
-  background: #f3f7ef;
+  border-color: #ad95ef;
+  background: #f7f2ff;
 }
 .place-service-tile:focus-visible {
   outline: 2px solid var(--green);
