@@ -3,6 +3,7 @@ package com.slotly.api.module.booking.repository;
 import com.slotly.api.module.booking.entity.Appointment;
 import com.slotly.api.module.booking.entity.AppointmentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 import java.time.Instant;
 import java.util.*;
 public interface AppointmentRepository extends JpaRepository<Appointment, UUID> {
@@ -22,8 +23,10 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
         AppointmentStatus status
     );
 
+    @EntityGraph(attributePaths = {"customer", "place", "offering"})
     List<Appointment> findByCustomerIdOrderByStartsAtDesc(UUID customerId);
 
+    @EntityGraph(attributePaths = {"customer", "place", "offering"})
     List<Appointment> findByPlaceIdAndStartsAtGreaterThanEqualAndStartsAtLessThanOrderByStartsAt(
         UUID placeId,
         Instant from,

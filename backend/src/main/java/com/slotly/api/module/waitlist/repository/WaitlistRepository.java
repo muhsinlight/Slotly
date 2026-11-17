@@ -3,6 +3,7 @@ package com.slotly.api.module.waitlist.repository;
 import com.slotly.api.module.waitlist.entity.WaitlistEntry;
 import com.slotly.api.module.waitlist.entity.WaitlistStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -11,6 +12,7 @@ import java.util.Collection;
 public interface WaitlistRepository extends JpaRepository<WaitlistEntry, UUID> {
     List<WaitlistEntry> findByPlaceIdAndStatusAndOfferExpiresAtGreaterThan(UUID placeId, WaitlistStatus status, Instant now);
 
+    @EntityGraph(attributePaths = {"place", "offering"})
     List<WaitlistEntry> findByCustomerIdOrderByCreatedAtDesc(UUID customerId);
 
     List<WaitlistEntry> findByPlaceIdAndOfferingIdAndRequestedStartsAtAndStatusOrderByCreatedAtAsc(
