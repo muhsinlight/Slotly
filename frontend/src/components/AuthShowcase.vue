@@ -103,7 +103,7 @@ const previewDays = [
   overflow: hidden;
   padding: 52px 42px 40px;
   color: #f7f8ed;
-  background: #244c38;
+  background: #392176;
 }
 
 .auth-showcase::before,
@@ -152,7 +152,7 @@ const previewDays = [
 .showcase-eyebrow::before {
   width: 22px;
   height: 1px;
-  background: #bace9c;
+  background: #d9b6ff;
   content: '';
 }
 
@@ -179,8 +179,8 @@ const previewDays = [
 
 .preview-calendar {
   padding: 24px 22px 40px;
-  color: #293b30;
-  background: #fafbf6;
+  color: #302348;
+  background: #fffaff;
   border: 1px solid #fff;
   border-radius: 14px;
   box-shadow: 0 16px 36px #102d282e;
@@ -226,7 +226,7 @@ const previewDays = [
 }
 
 .preview-month span:first-child {
-  color: #344635;
+  color: #453463;
   font-weight: 600;
 }
 
@@ -261,7 +261,7 @@ const previewDays = [
 
 .preview-day-selected {
   color: #e0eacb;
-  background: #345a3f;
+  background: #6742cc;
 }
 
 .preview-day-selected strong {
@@ -269,7 +269,7 @@ const previewDays = [
 }
 
 .preview-day-selected .preview-day-dot {
-  background: #dce9b4;
+  background: #e6d4ff;
 }
 
 .preview-appointment {
@@ -280,7 +280,7 @@ const previewDays = [
   padding: 15px 11px;
   border: 1px solid #e0e7d7;
   border-radius: 8px;
-  background: #edf1e6;
+  background: #f0eaff;
 }
 
 .preview-time {
@@ -289,7 +289,7 @@ const previewDays = [
   align-items: center;
   padding-right: 10px;
   border-right: 1px solid #ced9c3;
-  color: #46643d;
+  color: #6742cc;
   font-size: 11px;
   font-weight: 600;
 }
@@ -317,8 +317,8 @@ const previewDays = [
   flex-shrink: 0;
   margin-left: auto;
   border-radius: 50%;
-  background: #dbe7cf;
-  color: #46643d;
+  background: #e1d4fa;
+  color: #6742cc;
 }
 
 .preview-confirmed svg {
@@ -338,8 +338,8 @@ const previewDays = [
   width: calc(100% - 6px);
   margin: -17px -12px 0 auto;
   padding: 18px 16px;
-  color: #324327;
-  background: #e7edcf;
+  color: #453463;
+  background: #eae0fc;
   border: 1px solid #f4f6e8;
   border-radius: 10px;
   box-shadow: 0 12px 28px #102d2833;

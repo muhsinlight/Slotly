@@ -38,23 +38,35 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-  <AppHeader />
-  <main class="account-page">
-    <h1>Hesap ayarları</h1>
-    <p>E-posta adresini doğrulayarak hesap kurtarma ve bildirim özelliklerini kullanabilirsin.</p>
-    <form @submit.prevent="save">
-      <label>E-posta <input v-model="email" type="email" autocomplete="email" maxlength="254" required :disabled="busy"></label>
-      <p>{{ verified ? 'Adres doğrulandı.' : 'Adres henüz doğrulanmadı.' }}</p>
-      <button class="button primary" :disabled="busy">{{ busy ? 'Kaydediliyor…' : 'Kaydet ve doğrulama bağlantısı iste' }}</button>
-    </form>
-    <p v-if="message" role="status">{{ message }}</p>
-    <p v-if="error" role="alert">{{ error }}</p>
-    <NotificationSettings :verified="verified" />
-  </main>
+  <div class="app-shell">
+    <AppHeader />
+    <main class="settings-page">
+      <div class="settings-intro">
+        <span class="eyebrow">HESABIN</span>
+        <h1>Her şey kontrolünde.</h1>
+        <p>İletişim bilgilerini ve bildirim tercihlerini buradan yönet.</p>
+      </div>
+      <div class="settings-layout">
+        <aside class="settings-aside">
+          <span class="settings-aside-icon" aria-hidden="true">✦</span>
+          <h2>Sana özel bir alan.</h2>
+          <p>E-posta adresini doğruladığında hesabını kolayca kurtarabilir, önemli randevu haberlerini alabilirsin.</p>
+          <span class="settings-aside-foot">SLOTLY / HESAP AYARLARI</span>
+        </aside>
+        <div class="settings-content">
+          <section class="settings-card">
+            <div class="settings-card-heading"><span class="settings-index">01</span><div><h2>E-posta adresi</h2><p>Hesabınla ilgili haberler bu adrese gönderilir.</p></div></div>
+            <form class="settings-form" @submit.prevent="save">
+              <label>E-posta adresin <input v-model="email" type="email" autocomplete="email" maxlength="254" required :disabled="busy" placeholder="ornek@eposta.com"></label>
+              <p class="verification-state" :class="{ verified }"><span aria-hidden="true">{{ verified ? '✓' : '!' }}</span>{{ verified ? 'Adres doğrulandı' : 'Adres henüz doğrulanmadı' }}</p>
+              <button class="button primary" :disabled="busy">{{ busy ? 'Kaydediliyor…' : 'Kaydet ve doğrulama bağlantısı iste' }} <span aria-hidden="true">↗</span></button>
+            </form>
+            <p v-if="message" class="owner-notice" role="status">{{ message }}</p>
+            <p v-if="error" class="booking-error" role="alert">{{ error }}</p>
+          </section>
+          <NotificationSettings :verified="verified" />
+        </div>
+      </div>
+    </main>
+  </div>
 </template>
-
-<style scoped>
-.account-page { max-width: 640px; margin: 40px auto; padding: 24px; }
-label { display: grid; gap: 8px; }
-input { padding: 12px; border: 1px solid #aaa; border-radius: 8px; font: inherit; }
-</style>
