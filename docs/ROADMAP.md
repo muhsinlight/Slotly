@@ -113,7 +113,7 @@ Backend testleri uygulama bağlamına ek olarak kapasite, eşzamanlı istekler, 
 
 1 → 2 → 3 → 4 → 5. Her aşama küçük, bağımsız görevler halinde doğrulanıp commit edilir. Takvim ve bildirim özelliklerinden önce temel müşteri akışı tamamlanır; pilot yayından önce güvenilirlik ve migration işleri bitirilir. Süre tahmini, aşama görevleri ve ürün kararları netleşince yapılır.
 
-İlk iki özellik görevi kapasite ayırma ve tarih istisnalarıdır; uygulanıp yerelde doğrulandı. GitHub CI ve main birleşimi ayrıca doğrulanmalıdır. Sonraki geliştirme e-posta doğrulama altyapısıdır.
+Kapasite ayırma ve tarih istisnaları uygulanıp main'e birleşti. E-posta doğrulama ve parola kurtarma da eklendi. Teklif bildirimi ve randevu hatırlatma altyapısı gerçek gönderim kapalı olarak hazırlandı. Yeniden planlamada boşalan saatin FIFO davranışı ve tamamlandı/gelmedi işlemlerinin açılma zamanı kullanıcı kararını bekliyor.
 
 ## Bağımsız görevler ve inceleme düzeni
 
@@ -125,8 +125,8 @@ Her satır ayrı görev dalında uygulanır; görev büyürse bağımsız alt g�
 | 2 | Tatil ve özel çalışma saatleri | Uygulandı; migration, API, işletme arayüzü ve rezervasyon engeli birlikte doğrulanır. |
 | 3 | E-posta doğrulama | Uygulandı: hesap ekranı, adres ekleme, 30 dakikalık tek kullanımlık doğrulama, yeniden gönderim sınırı ve kalıcı gönderim kuyruğu. Sağlayıcı seçimi ve gerçek gönderim bekliyor. |
 | 4 | Şifre sıfırlama | Uygulandı: doğrulanmış adres, 15 dakikalık tek kullanımlık bağlantı, genel yanıt, istek sınırı, eski oturumların iptali ve frontend kurtarma ekranları. Gerçek gönderim bekliyor. |
-| 5 | Teklif bildirimi | Doğrulanmış adres ve kullanıcı tercihi; teslimat/yeniden deneme ve mükerrer gönderim kontrolü. Gerçek dış gönderim ayrıca yetkilendirilir. |
-| 6 | Randevu hatırlatması | Bildirim altyapısı sonrası; zamanlama, iptal/değişiklik ve mükerrer gönderim testleri. |
+| 5 | Teklif bildirimi | Altyapı uygulandı: doğrulanmış adres, tercih ekranı, tekilleştirilmiş outbox, geçerlilik kontrolü, yeniden deneme ve bildirim geçmişi. Sağlayıcı adaptörü ve gerçek dış gönderim bekliyor. |
+| 6 | Randevu hatırlatması | Altyapı uygulandı: frontend tercihleriyle 2/24 saat, zamanlayıcı, iptal/saat değişikliği ve mükerrer kayıt kontrolü. Gerçek gönderim sağlayıcı kararını bekliyor. |
 | 7 | Randevu yeniden planlama | Eski randevu ile yeni kapasite atomik değişir; hata durumunda mevcut randevu korunur. İptal edilen saatin sıra davranışı kararlaştırılır. |
 | 8 | Tamamlandı / gelmedi durumları | Yetkili işletme işlemi, izin verilen durum geçişleri ve müşteri/işletme görünümü doğrulanır. |
 | 9 | Pilot hazırlığı | Hedef ortam, domain ve maliyet seçimi sonrası HTTPS, secret, izleme ve gerçek yedekten dönüş doğrulanır. |

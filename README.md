@@ -27,6 +27,11 @@ node scripts/dev.mjs
 
 Komut yerel PostgreSQL’i başlatır, gerektiğinde frontend bağımlılıklarını kurar ve API ile web arayüzünü çalıştırır.
 
+RabbitMQ ile bildirim kuyruğunu denemek için `docker compose --profile messaging up -d --wait rabbitmq`
+komutunu çalıştırın ve API'yi `RABBITMQ_ENABLED=true` ortam değişkeniyle başlatın.
+RabbitMQ yönetim ekranı `http://localhost:15672` adresindedir (yerel kullanıcı/şifre: `slotly`).
+E-posta sağlayıcısı bağlı değilken kuyruk iş taşır, gerçek e-posta göndermez.
+
 - Web: http://localhost:5173
 - API: http://localhost:8080
 - Sağlık kontrolü: http://localhost:8080/actuator/health
