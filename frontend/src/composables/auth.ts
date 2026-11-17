@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 
-export type Role = 'OWNER' | 'CUSTOMER'
+export type Role = 'OWNER' | 'CUSTOMER' | 'ADMIN'
 
 const TOKEN_KEY = 'slotly-token'
 
@@ -22,7 +22,7 @@ function readRole(accessToken: string): Role {
     const encodedClaims = accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
     const claims = JSON.parse(atob(encodedClaims))
 
-    if (claims.role === 'OWNER' || claims.role === 'CUSTOMER') {
+    if (claims.role === 'OWNER' || claims.role === 'CUSTOMER' || claims.role === 'ADMIN') {
       return claims.role
     }
   } catch {
