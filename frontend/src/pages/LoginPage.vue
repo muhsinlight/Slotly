@@ -24,7 +24,8 @@ async function login(): Promise<void> {
     })
 
     saveAuth(response.accessToken)
-    const returnTo = safeReturnTo(router.currentRoute.value.query.returnTo, role.value === 'OWNER' ? '/owner' : '/')
+    const defaultPath = role.value === 'ADMIN' ? '/admin' : role.value === 'OWNER' ? '/owner' : '/'
+    const returnTo = safeReturnTo(router.currentRoute.value.query.returnTo, defaultPath)
     await router.push(returnTo)
   } catch (error) {
     errorMessage.value = (error as Error).message

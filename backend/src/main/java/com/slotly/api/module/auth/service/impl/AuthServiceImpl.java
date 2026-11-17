@@ -7,6 +7,7 @@ import com.slotly.api.module.auth.dto.request.RegisterRequest;
 import com.slotly.api.module.auth.dto.response.LoginResponse;
 import com.slotly.api.module.auth.dto.response.RegistrationResponse;
 import com.slotly.api.module.user.entity.User;
+import com.slotly.api.module.user.entity.UserRole;
 import com.slotly.api.module.user.repository.UserRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -42,6 +43,9 @@ public class AuthServiceImpl implements com.slotly.api.module.auth.service.AuthS
 
     @Transactional
     public RegistrationResponse register(RegisterRequest request) {
+        if (request.role() == UserRole.ADMIN) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admin registration is not allowed");
+        }
         if (userRepository.existsByUsername(request.username())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
         }
