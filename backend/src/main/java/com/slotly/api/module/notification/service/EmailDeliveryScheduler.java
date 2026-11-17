@@ -1,10 +1,12 @@
 package com.slotly.api.module.notification.service;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(name = "slotly.rabbitmq.enabled", havingValue = "false", matchIfMissing = true)
 public class EmailDeliveryScheduler {
     private final EmailDispatcher dispatcher;
     private final boolean enabled;

@@ -22,14 +22,24 @@ public class EmailDispatcher {
 
     @Transactional
     public boolean deliverNext() {
+        return deliver(null);
+    }
+
+    @Transactional
+    public boolean deliver(UUID messageId) {
         EmailGateway provider = gateway.getIfAvailable();
         if (provider == null) {
             return false;
         }
-        var rows = jdbc.queryForList("""
-            SELECT * FROM email_outbox WHERE state = 'PENDING' AND next_attempt_at <= ?
-            ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1
-            """, Timestamp.from(clock.instant()));
+        var rows = messageId == null
+            ? jdbc.queryForList("""
+                SELECT * FROM email_outbox WHERE state = 'PENDING' AND next_attempt_at <= ?
+                ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1
+                """, Timestamp.from(clock.instant()))
+            : jdbc.queryForList("""
+                SELECT * FROM email_outbox WHERE id = ? AND state = 'PENDING' AND next_attempt_at <= ?
+                FOR UPDATE SKIP LOCKED
+                """, messageId, Timestamp.from(clock.instant()));
         if (rows.isEmpty()) {
             return false;
         }
