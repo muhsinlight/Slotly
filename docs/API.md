@@ -113,3 +113,7 @@ Aşağıdaki uçlar yalnızca ilgili mekânın sahibi olan `OWNER` rolüyle kull
 - `403`: rol veya kaynak sahipliği izni yok.
 - `404`: kaynak bulunamadı.
 - `409`: kullanıcı adı çakışması, kapasite doluluğu veya mevcut durumla çakışan işlem.
+
+## Randevu sonucu
+
+`PATCH /api/owner/appointments/{id}/outcome`, `{"status":"COMPLETED"}` veya `{"status":"NO_SHOW"}` alır ve güncellenen randevuyu döndürür. Yalnız ilgili işletme sahibi, randevunun bitiş anından itibaren işlem yapabilir. Aynı sonuç tekrar gönderilebilir; iptal edilmiş veya farklı bir sonuçla kapanmış randevu değiştirilemez (`409`). Başka sahibin randevusu `403`, geçersiz hedef durum `400` döndürür. Tamamlanmış ve gelmedi işaretlenmiş randevular iptal edilemez. Yeni durumlar mevcut `VARCHAR(12)` alanına sığar; şema değişikliği gerekmez.

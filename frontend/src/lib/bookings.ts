@@ -26,7 +26,7 @@ export type Appointment = {
   offeringName: string
   startsAt: string
   endsAt: string
-  status: 'CONFIRMED' | 'CANCELLED'
+  status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW'
 }
 
 export type BookingSelection = { placeId: string; offeringId: string; startsAt: string }
@@ -55,4 +55,11 @@ export function listSlots(placeId: string, offeringId: string, date: string, sig
   end.setDate(end.getDate() + 1)
   const query = new URLSearchParams({ offeringId, from: start.toISOString(), to: end.toISOString() })
   return request<string[]>(`/places/${placeId}/availability?${query}`, { signal })
+}
+
+export const appointmentStatusLabels: Record<Appointment['status'], string> = {
+  CONFIRMED: 'Onaylandı',
+  CANCELLED: 'İptal edildi',
+  COMPLETED: 'Tamamlandı',
+  NO_SHOW: 'Gelmedi',
 }

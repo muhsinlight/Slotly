@@ -8,7 +8,7 @@ Bu dosya mevcut davranışı ve açık ürün kararlarını özetler. Test sonu�
 |---|---|---|
 | 1. Müşteri akışı | Arama, mekân detayı, hizmet/tarih/saat, özet/onay, giriş ve kayıttan seçimle dönüş, ayrı randevu sayfası, iptal onayı, 401/oturum temizliği | Temel tamamlanma ölçütleri mobil tarayıcı testinde doğrulandı. |
 | 2. Güvenilirlik | İzole PostgreSQL, enjekte edilen saat, eşzamanlı rezervasyon/kabul, teklif kapasitesi, kapasite azaltımında mevcut randevu ve aktif teklif koruması, rol/sahiplik testleri ve CI | Yeni alan kuralları ilgili testlerle eklenir. |
-| 3. İşletme paneli | Mekân/hizmet/saat yönetimi, günlük/haftalık liste ve özel günler; mevcut randevu ve teklifleri bozan takvim değişiklikleri engellenir | Yeniden planlama ve tamamlandı/gelmedi kuralları bekliyor. |
+| 3. İşletme paneli | Mekân/hizmet/saat yönetimi, günlük/haftalık liste ve özel günler; mevcut randevu ve teklifleri bozan takvim değişiklikleri engellenir | Yeniden planlama bekliyor. Tamamlandı/gelmedi akışı eklendi; doğrulama durumu ilgili çalıştırmada raporlanır. |
 | 4. Bekleme listesi ve hesap | FIFO, süreli teklif, SSE ve yedek yenileme; e-posta doğrulama, parola kurtarma, bildirim tercihleri, kalıcı gönderim kuyruğu ve 2/24 saat hatırlatma altyapısı | Sağlayıcı adaptörü ve gerçek doğrulama/kurtarma/teklif/hatırlatma e-postası teslimatı bekliyor. |
 | 5. Pilot hazırlık | Flyway V1, temiz kurulum ve mevcut kayıtları koruyan baseline testi, ortam API adresi, prod secret/CORS ayarları, giriş sınırı, sağlık/hata kayıtları, otomatik dump/restore kontrolü, ayrı demo | Gerçek canlı ortam, HTTPS proxy/domain, secret ve yedek saklama ayarları kurulmadı; sınırlı gerçek pilot başlamadı. |
 
@@ -113,7 +113,7 @@ Backend testleri uygulama bağlamına ek olarak kapasite, eşzamanlı istekler, 
 
 1 → 2 → 3 → 4 → 5. Her aşama küçük, bağımsız görevler halinde doğrulanıp commit edilir. Takvim ve bildirim özelliklerinden önce temel müşteri akışı tamamlanır; pilot yayından önce güvenilirlik ve migration işleri bitirilir. Süre tahmini, aşama görevleri ve ürün kararları netleşince yapılır.
 
-Kapasite ayırma ve tarih istisnaları uygulanıp main'e birleşti. E-posta doğrulama ve parola kurtarma da eklendi. Teklif bildirimi ve randevu hatırlatma altyapısı gerçek gönderim kapalı olarak hazırlandı. Yeniden planlamada boşalan saatin FIFO davranışı ve tamamlandı/gelmedi işlemlerinin açılma zamanı kullanıcı kararını bekliyor.
+Kapasite ayırma ve tarih istisnaları uygulanıp main'e birleşti. E-posta doğrulama ve parola kurtarma da eklendi. Teklif bildirimi ve randevu hatırlatma altyapısı gerçek gönderim kapalı olarak hazırlandı. Yeniden planlamada boşalan saatin FIFO davranışı kullanıcı kararını bekliyor. Tamamlandı/gelmedi işlemleri, Muhsin’in onayıyla yalnız işletme sahibine randevu bitişinden itibaren açılır.
 
 ## Bağımsız görevler ve inceleme düzeni
 

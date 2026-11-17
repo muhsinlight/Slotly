@@ -3,11 +3,12 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
 import CalendarExceptions from '../components/CalendarExceptions.vue'
 import { request } from '../lib/api'
+import { appointmentStatusLabels, type Appointment as BookingAppointment } from '../lib/bookings'
 
 type Place = { id: string; name: string; description: string | null; address: string; capacity: number; active: boolean }
 type Offering = { id: string; placeId: string; name: string; description: string | null; price: number; durationMinutes: number | null; kind: 'SERVICE' | 'PRODUCT'; active: boolean }
 type BusinessHour = { id: string; dayOfWeek: string; opensAt: string; closesAt: string }
-type Appointment = { id: string; placeName: string; offeringName: string; customerName: string; startsAt: string; endsAt: string; status: string }
+type Appointment = { id: string; placeName: string; offeringName: string; customerName: string; startsAt: string; endsAt: string; status: BookingAppointment['status'] }
 
 const days = [
   { value: 'MONDAY', label: 'Pazartesi' }, { value: 'TUESDAY', label: 'Salı' },
@@ -24,6 +25,8 @@ const date = ref(localDate())
 const calendarView = ref<'day' | 'week'>('day')
 const loading = ref(true)
 const busy = ref(false)
+const now = ref(Date.now())
+const clockTimer = window.setInterval(() => { now.value = Date.now() }, 1000)
 const error = ref('')
 const notice = ref('')
 let placeDataRequest: AbortController | undefined
@@ -32,6 +35,24 @@ const hourForm = ref({ dayOfWeek: 'MONDAY', opensAt: '09:00', closesAt: '17:00' 
 const offerForm = ref({ id: '', name: '', description: '', price: 0, durationMinutes: 30, kind: 'SERVICE' as 'SERVICE' | 'PRODUCT', active: true })
 const selectedPlace = computed(() => places.value.find((place) => place.id === selectedPlaceId.value) || null)
 const isEditingOffer = computed(() => Boolean(offerForm.value.id))
+
+async function recordOutcome(appointment: Appointment, status: 'COMPLETED' | 'NO_SHOW'): Promise<void> {
+  if (busy.value) return
+  if (!window.confirm(`Randevu “${appointmentStatusLabels[status]}” olarak işaretlensin mi? Bu işlem geri alınamaz.`)) return
+  busy.value = true
+  error.value = ''
+  try {
+    const updated = await request<Appointment>(`/owner/appointments/${appointment.id}/outcome`, {
+      method: 'PATCH', body: JSON.stringify({ status }),
+    })
+    appointments.value = appointments.value.map(item => item.id === updated.id ? updated : item)
+    notice.value = 'Randevu durumu kaydedildi.'
+  } catch (cause) {
+    error.value = (cause as Error).message
+  } finally {
+    busy.value = false
+  }
+}
 
 function localDate(): string {
   const current = new Date()
@@ -226,7 +247,10 @@ async function deleteHour(hour: BusinessHour): Promise<void> {
 }
 
 watch([selectedPlaceId, date, calendarView], () => { void loadPlaceData() }, { flush: 'sync' })
-onUnmounted(() => placeDataRequest?.abort())
+onUnmounted(() => {
+  placeDataRequest?.abort()
+  window.clearInterval(clockTimer)
+})
 onMounted(loadPlaces)
 </script>
 
@@ -325,7 +349,11 @@ onMounted(loadPlaces)
           <div class="owner-list">
             <article v-for="appointment in appointments" :key="appointment.id" class="owner-list-row">
               <div><b>{{ new Date(appointment.startsAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) }} · {{ appointment.customerName }}</b><small>{{ appointment.offeringName }} · {{ new Date(appointment.startsAt).toLocaleDateString('tr-TR') }}</small></div>
-              <span class="status" :class="appointment.status.toLowerCase()">{{ appointment.status === 'CONFIRMED' ? 'Onaylandı' : 'İptal edildi' }}</span>
+              <span class="status" :class="appointment.status.toLowerCase()">{{ appointmentStatusLabels[appointment.status] }}</span>
+              <div v-if="appointment.status === 'CONFIRMED'" class="owner-actions">
+                <button class="text-button" :disabled="busy || new Date(appointment.endsAt).getTime() > now" @click="recordOutcome(appointment, 'COMPLETED')">Tamamlandı</button>
+                <button class="text-button cancel" :disabled="busy || new Date(appointment.endsAt).getTime() > now" @click="recordOutcome(appointment, 'NO_SHOW')">Gelmedi</button>
+              </div>
             </article>
             <p v-if="!appointments.length" class="empty">Bu {{ calendarView === 'week' ? 'haftada' : 'tarihte' }} randevu bulunmuyor.</p>
           </div>

@@ -127,6 +127,41 @@ class BookingServiceIntegrationTests {
     }
 
     @Test
+    void outcomesRequireOwnershipAndEndTimeAndCannotBeChanged() {
+        UUID id = book(customerOne, saveService(30), at(10, 0));
+        assertStatus(HttpStatus.FORBIDDEN, () ->
+            bookingService.recordOutcome(customerOne.getId(), id, AppointmentStatus.COMPLETED));
+        assertStatus(HttpStatus.CONFLICT, () ->
+            bookingService.recordOutcome(owner.getId(), id, AppointmentStatus.COMPLETED));
+        clock.setInstant(at(10, 30));
+        assertEquals("COMPLETED",
+            bookingService.recordOutcome(owner.getId(), id, AppointmentStatus.COMPLETED).status());
+        assertEquals("COMPLETED",
+            bookingService.recordOutcome(owner.getId(), id, AppointmentStatus.COMPLETED).status());
+        assertStatus(HttpStatus.CONFLICT, () ->
+            bookingService.recordOutcome(owner.getId(), id, AppointmentStatus.NO_SHOW));
+        assertStatus(HttpStatus.CONFLICT, () -> bookingService.cancel(owner.getId(), id));
+        assertEquals(AppointmentStatus.COMPLETED, appointments.findById(id).orElseThrow().getStatus());
+    }
+
+    @Test
+    void noShowIsPersistedAndCancelledAppointmentsRejectOutcomes() {
+        Offering service = saveService(30);
+        UUID cancelled = book(customerOne, service, at(10, 0));
+        UUID absent = book(customerTwo, service, at(11, 0));
+        bookingService.cancel(customerOne.getId(), cancelled);
+        clock.setInstant(at(12, 0));
+        assertStatus(HttpStatus.CONFLICT, () ->
+            bookingService.recordOutcome(owner.getId(), cancelled, AppointmentStatus.COMPLETED));
+        assertStatus(HttpStatus.BAD_REQUEST, () ->
+            bookingService.recordOutcome(owner.getId(), absent, AppointmentStatus.CANCELLED));
+        bookingService.recordOutcome(owner.getId(), absent, AppointmentStatus.NO_SHOW);
+        bookingService.recordOutcome(owner.getId(), absent, AppointmentStatus.NO_SHOW);
+        assertEquals(AppointmentStatus.NO_SHOW, appointments.findById(absent).orElseThrow().getStatus());
+        assertStatus(HttpStatus.CONFLICT, () -> bookingService.cancel(customerTwo.getId(), absent));
+    }
+
+    @Test
     void simultaneousRequestsCannotExceedCapacity() throws Exception {
         Offering service = saveService(30);
         Instant startsAt = at(10, 0);

@@ -113,8 +113,8 @@ public class BookingServiceImpl implements BookingService {
         if (!isCustomer && !isOwner) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot cancel this appointment");
         }
-        if (appointment.getStatus() == AppointmentStatus.CANCELLED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Appointment is already cancelled");
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only confirmed appointments can be cancelled");
         }
 
         appointment.cancel();
@@ -135,6 +135,26 @@ public class BookingServiceImpl implements BookingService {
             .stream()
             .map(AppointmentResponse::from)
             .toList();
+    }
+
+    @Transactional
+    public AppointmentResponse recordOutcome(UUID ownerId, UUID appointmentId, AppointmentStatus outcome) {
+        Appointment appointment = appointments.findById(appointmentId)
+            .orElseThrow(() -> notFound("Appointment not found"));
+        Place place = places.findLockedById(appointment.getPlace().getId())
+            .orElseThrow(() -> notFound("Place not found"));
+        if (!place.getOwner().getId().equals(ownerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Place belongs to another owner");
+        }
+        entityManager.refresh(appointment);
+        try {
+            appointment.recordOutcome(outcome, clock.instant());
+        } catch (IllegalArgumentException exception) {
+            throw bad(exception.getMessage());
+        } catch (IllegalStateException exception) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, exception.getMessage());
+        }
+        return AppointmentResponse.from(appointment);
     }
 
     private Place requirePlace(UUID id) {
