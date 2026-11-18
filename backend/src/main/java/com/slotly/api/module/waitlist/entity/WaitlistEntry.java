@@ -113,6 +113,11 @@ public class WaitlistEntry {
         this.offerExpiresAt = expiresAt;
     }
 
+    public boolean isDue(Instant now) {
+        return (status == WaitlistStatus.WAITING && !requestedStartsAt.isAfter(now))
+            || (status == WaitlistStatus.OFFERED && (!offerExpiresAt.isAfter(now) || !requestedStartsAt.isAfter(now)));
+    }
+
     public void changeStatus(WaitlistStatus status) {
         this.status = status;
     }

@@ -2,6 +2,7 @@ package com.slotly.api.module.place.dto.response;
 
 import com.slotly.api.module.place.entity.Place;
 
+import java.time.ZoneId;
 import java.util.UUID;
 
 public record PlaceResponse(
@@ -11,9 +12,10 @@ public record PlaceResponse(
     String description,
     String address,
     int capacity,
-    boolean active
+    boolean active,
+    String timeZone
 ) {
-    public static PlaceResponse from(Place place) {
+    public static PlaceResponse from(Place place, ZoneId zone) {
         return new PlaceResponse(
             place.getId(),
             place.getOwner().getId(),
@@ -21,7 +23,8 @@ public record PlaceResponse(
             place.getDescription(),
             place.getAddress(),
             place.getCapacity(),
-            place.isActive()
+            place.isActive(),
+            zone.getId()
         );
     }
 }

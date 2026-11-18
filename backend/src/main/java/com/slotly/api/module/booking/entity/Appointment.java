@@ -88,7 +88,26 @@ public class Appointment {
         return status;
     }
 
+    public void recordOutcome(AppointmentStatus outcome, Instant now) {
+        if (outcome != AppointmentStatus.COMPLETED && outcome != AppointmentStatus.NO_SHOW) {
+            throw new IllegalArgumentException("Outcome must be COMPLETED or NO_SHOW");
+        }
+        if (now.isBefore(endsAt)) {
+            throw new IllegalStateException("Appointment has not ended yet");
+        }
+        if (status == outcome) {
+            return;
+        }
+        if (status != AppointmentStatus.CONFIRMED) {
+            throw new IllegalStateException("Appointment outcome cannot be changed");
+        }
+        status = outcome;
+    }
+
     public void cancel() {
+        if (status != AppointmentStatus.CONFIRMED) {
+            throw new IllegalStateException("Only confirmed appointments can be cancelled");
+        }
         status = AppointmentStatus.CANCELLED;
     }
 }

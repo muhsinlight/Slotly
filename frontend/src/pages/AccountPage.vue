@@ -5,18 +5,27 @@ import NotificationSettings from '../components/NotificationSettings.vue'
 import { request } from '../lib/api'
 
 const email = ref('')
-const verified = ref(false)
+const verifiedEmail = ref('')
+const pendingEmail = ref('')
 const busy = ref(false)
 const message = ref('')
 const error = ref('')
 
+async function refreshEmail(): Promise<void> {
+  const status = await request<{ email: string | null; verified: boolean; pendingEmail: string | null }>('/account/email')
+  verifiedEmail.value = status.verified ? status.email || '' : ''
+  pendingEmail.value = status.pendingEmail || ''
+  email.value = pendingEmail.value || status.email || ''
+}
+
 onMounted(async () => {
+  busy.value = true
   try {
-    const status = await request<{ email: string | null; verified: boolean }>('/account/email')
-    email.value = status.email || ''
-    verified.value = status.verified
+    await refreshEmail()
   } catch (cause) {
     error.value = (cause as Error).message
+  } finally {
+    busy.value = false
   }
 })
 
@@ -27,7 +36,7 @@ async function save(): Promise<void> {
   message.value = ''
   try {
     await request('/account/email', { method: 'POST', body: JSON.stringify({ email: email.value }) })
-    verified.value = false
+    await refreshEmail()
     message.value = 'Doğrulama bağlantısı gönderim kuyruğuna alındı. Bağlantı 30 dakika geçerlidir. Yeniden göndermek için bir dakika bekle.'
   } catch (cause) {
     error.value = (cause as Error).message
@@ -58,13 +67,15 @@ async function save(): Promise<void> {
             <div class="settings-card-heading"><span class="settings-index">01</span><div><h2>E-posta adresi</h2><p>Hesabınla ilgili haberler bu adrese gönderilir.</p></div></div>
             <form class="settings-form" @submit.prevent="save">
               <label>E-posta adresin <input v-model="email" type="email" autocomplete="email" maxlength="254" required :disabled="busy" placeholder="ornek@eposta.com"></label>
-              <p class="verification-state" :class="{ verified }"><span aria-hidden="true">{{ verified ? '✓' : '!' }}</span>{{ verified ? 'Adres doğrulandı' : 'Adres henüz doğrulanmadı' }}</p>
+              <p v-if="verifiedEmail" class="verification-state verified"><span aria-hidden="true">✓</span>Doğrulanmış adres · {{ verifiedEmail }}</p>
+              <p v-if="pendingEmail" class="verification-state">Doğrulama bekleyen adres · {{ pendingEmail }}</p>
+              <p v-if="!verifiedEmail && !pendingEmail" class="verification-state">Adres henüz doğrulanmadı</p>
               <button class="button primary" :disabled="busy">{{ busy ? 'Kaydediliyor…' : 'Kaydet ve doğrulama bağlantısı iste' }} <span aria-hidden="true">↗</span></button>
             </form>
             <p v-if="message" class="owner-notice" role="status">{{ message }}</p>
             <p v-if="error" class="booking-error" role="alert">{{ error }}</p>
           </section>
-          <NotificationSettings :verified="verified" />
+          <NotificationSettings :verified="Boolean(verifiedEmail)" />
         </div>
       </div>
     </main>

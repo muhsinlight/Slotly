@@ -6,10 +6,9 @@ import com.slotly.api.module.place.dto.request.PlaceRequest;
 import com.slotly.api.module.place.dto.response.BusinessHourResponse;
 import com.slotly.api.module.place.dto.response.OfferingResponse;
 import com.slotly.api.module.place.dto.response.PlaceResponse;
-import com.slotly.api.module.place.entity.Offering;
-import com.slotly.api.module.place.entity.Place;
 
-import com.slotly.api.module.booking.service.BookingService;
+import com.slotly.api.module.booking.service.AvailabilityService;
+import com.slotly.api.module.place.service.PlaceService;
 import com.slotly.api.common.response.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -23,9 +22,11 @@ import java.util.*;
 @RestController
 @RequestMapping("/api")
 public class PlaceController {
-    private final BookingService service;
+    private final PlaceService service;
+    private final AvailabilityService availability;
 
-    public PlaceController(BookingService service) {
+    public PlaceController(PlaceService service, AvailabilityService availability) {
+        this.availability = availability;
         this.service = service;
     }
 
@@ -145,7 +146,7 @@ public class PlaceController {
     public ResponseEntity<ApiResponse<List<Instant>>> availability(@PathVariable UUID id, @RequestParam UUID offeringId, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
         return ApiResponse.<List<Instant>>builder()
             .message("Availability listed")
-            .data(service.availability(id, offeringId, from, to))
+            .data(availability.availability(id, offeringId, from, to))
             .response();
     }
 }

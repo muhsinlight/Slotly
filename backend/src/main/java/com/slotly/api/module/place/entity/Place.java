@@ -50,11 +50,19 @@ public class Place {
         String address,
         int capacity
     ) {
+        this(owner, name, description, address, capacity, true);
+    }
+
+    public Place(
+        User owner,
+        String name,
+        String description,
+        String address,
+        int capacity,
+        boolean active
+    ) {
         this.owner = owner;
-        this.name = name;
-        this.description = description;
-        this.address = address;
-        this.capacity = capacity;
+        update(name, description, address, capacity, active);
     }
 
     public UUID getId() {

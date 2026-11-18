@@ -4,7 +4,7 @@ import com.slotly.api.module.waitlist.dto.request.WaitlistRequest;
 import com.slotly.api.module.booking.dto.response.AppointmentResponse;
 import com.slotly.api.module.waitlist.dto.response.WaitlistResponse;
 import com.slotly.api.common.response.ApiResponse;
-import com.slotly.api.module.booking.service.BookingService;
+import com.slotly.api.module.waitlist.service.WaitlistService;
 import com.slotly.api.module.waitlist.service.WaitlistNotificationService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -26,10 +26,10 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/waitlist")
 public class WaitlistController {
-    private final BookingService bookingService;
+    private final WaitlistService bookingService;
     private final WaitlistNotificationService notifications;
 
-    public WaitlistController(BookingService bookingService, WaitlistNotificationService notifications) {
+    public WaitlistController(WaitlistService bookingService, WaitlistNotificationService notifications) {
         this.bookingService = bookingService;
         this.notifications = notifications;
     }

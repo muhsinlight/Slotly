@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
-import { listAppointments, cancelAppointment as cancelRequest, type Appointment } from '../lib/bookings'
+import { appointmentStatusLabels, listAppointments, cancelAppointment as cancelRequest, type Appointment } from '../lib/bookings'
 
 const appointments = ref<Appointment[]>([])
 const loading = ref(true)
@@ -12,7 +12,8 @@ const filter = ref<'upcoming' | 'past' | 'cancelled'>('upcoming')
 const now = Date.now()
 const visibleAppointments = computed(() => appointments.value.filter((item) => {
   if (filter.value === 'cancelled') return item.status === 'CANCELLED'
-  if (item.status !== 'CONFIRMED') return false
+  if (item.status === 'CANCELLED') return false
+  if (item.status !== 'CONFIRMED') return filter.value === 'past'
   return filter.value === 'upcoming'
     ? new Date(item.startsAt).getTime() >= now
     : new Date(item.startsAt).getTime() < now
@@ -75,7 +76,7 @@ onMounted(loadAppointments)
             <b>{{ item.offeringName }}</b>
             <small>{{ item.placeName }} · {{ new Date(item.startsAt).toLocaleString('tr-TR', { dateStyle: 'long', timeStyle: 'short' }) }}</small>
           </div>
-          <span class="status" :class="item.status.toLowerCase()">{{ item.status === 'CONFIRMED' ? 'Onaylandı' : 'İptal edildi' }}</span>
+          <span class="status" :class="item.status.toLowerCase()">{{ appointmentStatusLabels[item.status] }}</span>
           <button v-if="filter === 'upcoming'" class="text-button cancel" :disabled="busyId === item.id" @click="cancelAppointment(item)">
             {{ busyId === item.id ? 'İptal ediliyor…' : 'İptal et' }}
           </button>

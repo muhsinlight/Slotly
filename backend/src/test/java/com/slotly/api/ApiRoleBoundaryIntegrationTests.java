@@ -18,7 +18,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -76,6 +79,39 @@ class ApiRoleBoundaryIntegrationTests {
         assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> auth.register(
             new RegisterRequest("admin-public", "AdminTest2026!", "Admin", "Test", UserRole.ADMIN)
         ));
+    }
+
+    @Test
+    void outcomePreflightAllowsPatchFromFrontend() throws Exception {
+        mockMvc.perform(options("/api/owner/appointments/{id}/outcome", UUID.randomUUID())
+                .header("Origin", "http://localhost:5173")
+                .header("Access-Control-Request-Method", "PATCH"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"))
+            .andExpect(header().string("Access-Control-Allow-Methods", org.hamcrest.Matchers.containsString("PATCH")));
+    }
+
+    @Test
+    void invalidAndMissingQueryParametersReturnBadRequest() throws Exception {
+        String owner = tokenFor(UserRole.OWNER);
+        String authorization = "Bearer " + owner;
+
+        mockMvc.perform(get("/api/owner/appointments")
+                .header("Authorization", authorization)
+                .param("placeId", "not-a-uuid")
+                .param("from", "2026-11-18T10:00:00Z")
+                .param("to", "2026-11-19T10:00:00Z"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.message").value("Invalid or missing request parameter"));
+
+        mockMvc.perform(get("/api/owner/appointments")
+                .header("Authorization", authorization)
+                .param("from", "2026-11-18T10:00:00Z")
+                .param("to", "2026-11-19T10:00:00Z"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.message").value("Invalid or missing request parameter"));
     }
 
     private String tokenFor(UserRole role) {

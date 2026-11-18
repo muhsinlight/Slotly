@@ -55,8 +55,20 @@ public class Offering {
         Integer durationMinutes,
         OfferingKind kind
     ) {
+        this(place, name, description, price, durationMinutes, kind, true);
+    }
+
+    public Offering(
+        Place place,
+        String name,
+        String description,
+        BigDecimal price,
+        Integer durationMinutes,
+        OfferingKind kind,
+        boolean active
+    ) {
         this.place = place;
-        update(name, description, price, durationMinutes, kind, true);
+        update(name, description, price, durationMinutes, kind, active);
     }
 
     public UUID getId() {

@@ -48,8 +48,8 @@ Başka bir terminalde proje kökünden çalıştırın:
 
 ```powershell
 cd frontend
-npm ci
-npm run dev
+pnpm install --frozen-lockfile
+pnpm run dev
 ```
 
 Vite `http://localhost:5173` adresinde açılır. Tarayıcıda bu adresi ziyaret edin. Arayüz API'ye `http://localhost:8080/api` üzerinden bağlanır; API önce çalışıyor olmalıdır.
@@ -91,7 +91,7 @@ cd backend
 ```powershell
 cd frontend
 $env:VITE_API_BASE_URL = 'http://localhost:8082'
-npm run dev -- --port 5174 --strictPort
+pnpm run dev --port 5174 --strictPort
 ```
 
 `http://localhost:5174` üzerinde `demo-owner` veya `demo-customer` ile giriş yapılabilir; yalnız bu yerel demo hesaplarının parolası `SlotlyDemo2026!` olur. Demo profili `prod` ile birlikte çalışmayı ve farklı adlı veritabanına örnek veri yazmayı reddeder. Demo veritabanını durdurmak için `docker compose -f docker/compose.demo.yaml down` kullanılır.

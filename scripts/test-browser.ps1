@@ -21,7 +21,7 @@ try {
 
     Push-Location (Join-Path $repositoryRoot 'frontend')
     try {
-        & npm.cmd run test:e2e
+        & pnpm.cmd run test:e2e
         if ($LASTEXITCODE -ne 0) {
             throw 'Browser tests failed.'
         }

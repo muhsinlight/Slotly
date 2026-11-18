@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
 import CalendarExceptions from '../components/CalendarExceptions.vue'
 import { request } from '../lib/api'
+import { appointmentStatusLabels, type Appointment as BookingAppointment, type Place } from '../lib/bookings'
+import { businessDate, calendarRange, timeFormatter } from '../lib/businessTime'
 
-type Place = { id: string; name: string; description: string | null; address: string; capacity: number; active: boolean }
 type Offering = { id: string; placeId: string; name: string; description: string | null; price: number; durationMinutes: number | null; kind: 'SERVICE' | 'PRODUCT'; active: boolean }
 type BusinessHour = { id: string; dayOfWeek: string; opensAt: string; closesAt: string }
-type Appointment = { id: string; placeName: string; offeringName: string; customerName: string; startsAt: string; endsAt: string; status: string }
+type Appointment = { id: string; placeName: string; offeringName: string; customerName: string; startsAt: string; endsAt: string; status: BookingAppointment['status'] }
 
 const days = [
   { value: 'MONDAY', label: 'Pazartesi' }, { value: 'TUESDAY', label: 'Salı' },
@@ -20,32 +21,52 @@ const selectedPlaceId = ref('')
 const offerings = ref<Offering[]>([])
 const hours = ref<BusinessHour[]>([])
 const appointments = ref<Appointment[]>([])
-const date = ref(localDate())
+const chosenDate = ref('')
 const calendarView = ref<'day' | 'week'>('day')
 const loading = ref(true)
 const busy = ref(false)
+const now = ref(Date.now())
+const clockTimer = window.setInterval(() => { now.value = Date.now() }, 1000)
 const error = ref('')
 const notice = ref('')
+let placeDataRequest: AbortController | undefined
 const placeForm = ref({ name: '', description: '', address: '', capacity: 1, active: true })
 const hourForm = ref({ dayOfWeek: 'MONDAY', opensAt: '09:00', closesAt: '17:00' })
 const offerForm = ref({ id: '', name: '', description: '', price: 0, durationMinutes: 30, kind: 'SERVICE' as 'SERVICE' | 'PRODUCT', active: true })
 const selectedPlace = computed(() => places.value.find((place) => place.id === selectedPlaceId.value) || null)
+const date = computed({
+  get: () => chosenDate.value || (selectedPlace.value ? businessDate(selectedPlace.value.timeZone) : ''),
+  set: (value: string) => { chosenDate.value = value },
+})
+const loadedPlaceId = ref('')
+const formReady = computed(() => Boolean(loadedPlaceId.value) && loadedPlaceId.value === selectedPlaceId.value && !loading.value)
+const calendarRows = computed(() => {
+  const place = selectedPlace.value
+  if (!place) return []
+  const dateFormat = new Intl.DateTimeFormat('tr-TR', { timeZone: place.timeZone })
+  return appointments.value.map(appointment => {
+    const start = Date.parse(appointment.startsAt)
+    return { ...appointment, time: timeFormatter(appointment.startsAt, place.timeZone).format(start), day: dateFormat.format(start) }
+  })
+})
 const isEditingOffer = computed(() => Boolean(offerForm.value.id))
 
-function localDate(): string {
-  const current = new Date()
-  current.setMinutes(current.getMinutes() - current.getTimezoneOffset())
-  return current.toISOString().slice(0, 10)
-}
-
-function dayRange(): { from: string; to: string } {
-  const start = new Date(`${date.value}T00:00:00`)
-  if (calendarView.value === 'week') {
-    start.setDate(start.getDate() - (start.getDay() + 6) % 7)
+async function recordOutcome(appointment: Appointment, status: 'COMPLETED' | 'NO_SHOW'): Promise<void> {
+  if (busy.value || !formReady.value) return
+  if (!window.confirm(`Randevu “${appointmentStatusLabels[status]}” olarak işaretlensin mi? Bu işlem geri alınamaz.`)) return
+  busy.value = true
+  error.value = ''
+  try {
+    const updated = await request<Appointment>(`/owner/appointments/${appointment.id}/outcome`, {
+      method: 'PATCH', body: JSON.stringify({ status }),
+    })
+    appointments.value = appointments.value.map(item => item.id === updated.id ? updated : item)
+    notice.value = 'Randevu durumu kaydedildi.'
+  } catch (cause) {
+    error.value = (cause as Error).message
+  } finally {
+    busy.value = false
   }
-  const end = new Date(start)
-  end.setDate(end.getDate() + (calendarView.value === 'week' ? 7 : 1))
-  return { from: start.toISOString(), to: end.toISOString() }
 }
 
 function setMessage(value: string): void {
@@ -71,22 +92,30 @@ async function loadPlaces(): Promise<void> {
 }
 
 async function loadPlaceData(): Promise<void> {
+  placeDataRequest?.abort()
+  const controller = new AbortController()
+  placeDataRequest = controller
+  loadedPlaceId.value = ''
+  offerings.value = []
+  hours.value = []
+  appointments.value = []
   const place = selectedPlace.value
   if (!place) {
-    offerings.value = []
-    hours.value = []
-    appointments.value = []
+    loading.value = false
     return
   }
 
-  const range = dayRange()
-  const query = new URLSearchParams({ placeId: place.id, from: range.from, to: range.to })
+  loading.value = true
+  error.value = ''
   try {
+    const range = calendarRange(date.value, place.timeZone, calendarView.value)
+    const query = new URLSearchParams({ placeId: place.id, ...range })
     const [offerList, hourList, appointmentList] = await Promise.all([
-      request<Offering[]>(`/owner/places/${place.id}/offerings`),
-      request<BusinessHour[]>(`/places/${place.id}/business-hours`),
-      request<Appointment[]>(`/owner/appointments?${query}`),
+      request<Offering[]>(`/owner/places/${place.id}/offerings`, { signal: controller.signal }),
+      request<BusinessHour[]>(`/places/${place.id}/business-hours`, { signal: controller.signal }),
+      request<Appointment[]>(`/owner/appointments?${query}`, { signal: controller.signal }),
     ])
+    if (controller.signal.aborted || placeDataRequest !== controller) return
     offerings.value = offerList
     hours.value = hourList
     appointments.value = appointmentList
@@ -97,11 +126,13 @@ async function loadPlaceData(): Promise<void> {
       capacity: place.capacity,
       active: place.active,
     }
+    loadedPlaceId.value = place.id
     error.value = ''
   } catch (cause) {
+    if (controller.signal.aborted || placeDataRequest !== controller) return
     error.value = (cause as Error).message
   } finally {
-    loading.value = false
+    if (placeDataRequest === controller) loading.value = false
   }
 }
 
@@ -123,10 +154,10 @@ async function createPlace(): Promise<void> {
 }
 
 async function savePlace(): Promise<void> {
-  if (!selectedPlace.value) return
+  if (busy.value || !formReady.value) return
   busy.value = true
   try {
-    const saved = await request<Place>(`/owner/places/${selectedPlace.value.id}`, {
+    const saved = await request<Place>(`/owner/places/${loadedPlaceId.value}`, {
       method: 'PUT',
       body: JSON.stringify({ ...placeForm.value, description: placeForm.value.description || null }),
     })
@@ -156,7 +187,7 @@ function resetOffering(): void {
 }
 
 async function saveOffering(): Promise<void> {
-  if (!selectedPlace.value) return
+  if (busy.value || !formReady.value) return
   busy.value = true
   const payload = {
     ...offerForm.value,
@@ -165,12 +196,12 @@ async function saveOffering(): Promise<void> {
   }
   try {
     if (offerForm.value.id) {
-      await request(`/owner/places/${selectedPlace.value.id}/offerings/${offerForm.value.id}`, {
+      await request(`/owner/places/${loadedPlaceId.value}/offerings/${offerForm.value.id}`, {
         method: 'PUT', body: JSON.stringify(payload),
       })
       setMessage('Hizmet güncellendi.')
     } else {
-      await request(`/owner/places/${selectedPlace.value.id}/offerings`, {
+      await request(`/owner/places/${loadedPlaceId.value}/offerings`, {
         method: 'POST', body: JSON.stringify(payload),
       })
       setMessage('Hizmet eklendi.')
@@ -185,10 +216,10 @@ async function saveOffering(): Promise<void> {
 }
 
 async function addHour(): Promise<void> {
-  if (!selectedPlace.value) return
+  if (busy.value || !formReady.value) return
   busy.value = true
   try {
-    await request(`/owner/places/${selectedPlace.value.id}/business-hours`, {
+    await request(`/owner/places/${loadedPlaceId.value}/business-hours`, {
       method: 'POST', body: JSON.stringify(hourForm.value),
     })
     setMessage('Çalışma saati eklendi.')
@@ -201,12 +232,12 @@ async function addHour(): Promise<void> {
 }
 
 async function deleteHour(hour: BusinessHour): Promise<void> {
-  if (!selectedPlace.value) return
+  if (busy.value || !formReady.value) return
   const dayName = days.find((day) => day.value === hour.dayOfWeek)?.label || hour.dayOfWeek
   if (!window.confirm(`${dayName} ${hour.opensAt.slice(0, 5)}–${hour.closesAt.slice(0, 5)} çalışma saatini silmek istiyor musun?`)) return
   busy.value = true
   try {
-    await request(`/owner/places/${selectedPlace.value.id}/business-hours/${hour.id}`, { method: 'DELETE' })
+    await request(`/owner/places/${loadedPlaceId.value}/business-hours/${hour.id}`, { method: 'DELETE' })
     setMessage('Çalışma saati silindi.')
     await loadPlaceData()
   } catch (cause) {
@@ -216,7 +247,17 @@ async function deleteHour(hour: BusinessHour): Promise<void> {
   }
 }
 
+watch(selectedPlaceId, (_, previous) => {
+  placeForm.value = { name: '', description: '', address: '', capacity: 1, active: true }
+  hourForm.value = { dayOfWeek: 'MONDAY', opensAt: '09:00', closesAt: '17:00' }
+  resetOffering()
+  if (previous) notice.value = ''
+})
 watch([selectedPlaceId, date, calendarView], () => { void loadPlaceData() })
+onUnmounted(() => {
+  placeDataRequest?.abort()
+  window.clearInterval(clockTimer)
+})
 onMounted(loadPlaces)
 </script>
 
@@ -227,10 +268,10 @@ onMounted(loadPlaces)
       <div class="section-heading">
         <div><span class="eyebrow">İŞLETME PANELİ</span><h1>Günlük çalışma alanın</h1></div>
         <label v-if="places.length" class="owner-select">Mekân
-          <select v-model="selectedPlaceId"><option v-for="place in places" :key="place.id" :value="place.id">{{ place.name }}</option></select>
+          <select v-model="selectedPlaceId" :disabled="busy"><option v-for="place in places" :key="place.id" :value="place.id">{{ place.name }}</option></select>
         </label>
       </div>
-      <p v-if="error" class="booking-error" role="alert">{{ error }}</p>
+      <p v-if="error" class="booking-error" role="alert">{{ error }} <button v-if="selectedPlace && !formReady && !loading" class="text-button" @click="loadPlaceData">Yeniden dene</button></p>
       <p v-if="notice" class="owner-notice" role="status">{{ notice }}</p>
       <p v-if="loading" class="empty" role="status">İşletme bilgileri yükleniyor…</p>
 
@@ -243,6 +284,7 @@ onMounted(loadPlaces)
           <label>Adres<input v-model="placeForm.address" required maxlength="300"></label>
           <label>Açıklama<input v-model="placeForm.description" maxlength="1000"></label>
           <label>Aynı anda hizmet kapasitesi<input v-model.number="placeForm.capacity" type="number" min="1" max="10000" required></label>
+          <label class="owner-checkbox"><input v-model="placeForm.active" type="checkbox">Mekânı müşterilere göster</label>
           <button class="button primary" :disabled="busy">{{ busy ? 'Kaydediliyor…' : 'Mekânı oluştur' }}</button>
         </form>
       </section>
@@ -256,12 +298,12 @@ onMounted(loadPlaces)
         <section id="owner-settings" class="owner-card">
           <div class="owner-section-heading"><div><span class="eyebrow">MEKÂN AYARLARI</span><h2>{{ selectedPlace.name }}</h2></div><span class="status" :class="selectedPlace.active ? '' : 'cancelled'">{{ selectedPlace.active ? 'Yayında' : 'Gizli' }}</span></div>
           <form class="owner-form-grid" @submit.prevent="savePlace">
-            <label>Mekân adı<input v-model="placeForm.name" required maxlength="120"></label>
-            <label>Adres<input v-model="placeForm.address" required maxlength="300"></label>
-            <label>Açıklama<input v-model="placeForm.description" maxlength="1000"></label>
-            <label>Kapasite<input v-model.number="placeForm.capacity" type="number" min="1" max="10000" required></label>
-            <label class="owner-checkbox"><input v-model="placeForm.active" type="checkbox">Mekânı müşterilere göster</label>
-            <button class="button primary" :disabled="busy">Mekân bilgilerini kaydet</button>
+            <label>Mekân adı<input v-model="placeForm.name" required maxlength="120" :disabled="busy || !formReady"></label>
+            <label>Adres<input v-model="placeForm.address" required maxlength="300" :disabled="busy || !formReady"></label>
+            <label>Açıklama<input v-model="placeForm.description" maxlength="1000" :disabled="busy || !formReady"></label>
+            <label>Kapasite<input v-model.number="placeForm.capacity" type="number" min="1" max="10000" required :disabled="busy || !formReady"></label>
+            <label class="owner-checkbox"><input v-model="placeForm.active" type="checkbox" :disabled="busy || !formReady">Mekânı müşterilere göster</label>
+            <button class="button primary" :disabled="busy || !formReady">Mekân bilgilerini kaydet</button>
           </form>
         </section>
 
@@ -281,8 +323,8 @@ onMounted(loadPlaces)
             <label>Tür<select v-model="offerForm.kind"><option value="SERVICE">Hizmet</option><option value="PRODUCT">Ürün</option></select></label>
             <label v-if="offerForm.kind === 'SERVICE'">Süre (dakika)<input v-model.number="offerForm.durationMinutes" type="number" min="1" max="1440" required></label>
             <label>Açıklama<input v-model="offerForm.description" maxlength="1000"></label>
-            <label v-if="isEditingOffer" class="owner-checkbox"><input v-model="offerForm.active" type="checkbox">Müşterilere açık</label>
-            <div class="owner-actions"><button class="button primary" :disabled="busy">{{ busy ? 'Kaydediliyor…' : isEditingOffer ? 'Değişiklikleri kaydet' : 'Hizmet ekle' }}</button><button v-if="isEditingOffer" class="text-button" type="button" @click="resetOffering">Vazgeç</button></div>
+            <label class="owner-checkbox"><input v-model="offerForm.active" type="checkbox">Müşterilere açık</label>
+            <div class="owner-actions"><button class="button primary" :disabled="busy || !formReady">{{ busy ? 'Kaydediliyor…' : isEditingOffer ? 'Değişiklikleri kaydet' : 'Hizmet ekle' }}</button><button v-if="isEditingOffer" class="text-button" type="button" @click="resetOffering">Vazgeç</button></div>
           </form>
         </section>
 
@@ -300,7 +342,7 @@ onMounted(loadPlaces)
             <label>Gün<select v-model="hourForm.dayOfWeek"><option v-for="day in days" :key="day.value" :value="day.value">{{ day.label }}</option></select></label>
             <label>Açılış<input v-model="hourForm.opensAt" type="time" required></label>
             <label>Kapanış<input v-model="hourForm.closesAt" type="time" required></label>
-            <button class="button primary" :disabled="busy">Saat ekle</button>
+            <button class="button primary" :disabled="busy || !formReady">Saat ekle</button>
           </form>
         </section>
 
@@ -313,9 +355,13 @@ onMounted(loadPlaces)
             <label class="owner-select">Tarih<input v-model="date" type="date"></label>
           </div>
           <div class="owner-list">
-            <article v-for="appointment in appointments" :key="appointment.id" class="owner-list-row">
-              <div><b>{{ new Date(appointment.startsAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) }} · {{ appointment.customerName }}</b><small>{{ appointment.offeringName }} · {{ new Date(appointment.startsAt).toLocaleDateString('tr-TR') }}</small></div>
-              <span class="status" :class="appointment.status.toLowerCase()">{{ appointment.status === 'CONFIRMED' ? 'Onaylandı' : 'İptal edildi' }}</span>
+            <article v-for="appointment in calendarRows" :key="appointment.id" class="owner-list-row">
+              <div><b>{{ appointment.time }} · {{ appointment.customerName }}</b><small>{{ appointment.offeringName }} · {{ appointment.day }}</small></div>
+              <span class="status" :class="appointment.status.toLowerCase()">{{ appointmentStatusLabels[appointment.status] }}</span>
+              <div v-if="appointment.status === 'CONFIRMED'" class="owner-actions">
+                <button class="text-button" :disabled="busy || new Date(appointment.endsAt).getTime() > now" @click="recordOutcome(appointment, 'COMPLETED')">Tamamlandı</button>
+                <button class="text-button cancel" :disabled="busy || new Date(appointment.endsAt).getTime() > now" @click="recordOutcome(appointment, 'NO_SHOW')">Gelmedi</button>
+              </div>
             </article>
             <p v-if="!appointments.length" class="empty">Bu {{ calendarView === 'week' ? 'haftada' : 'tarihte' }} randevu bulunmuyor.</p>
           </div>

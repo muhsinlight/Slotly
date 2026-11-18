@@ -1,0 +1,29 @@
+{
+  "file_scan_exclusions": [
+    "...",
+    "**/.worktrees/**",
+    "**/tmp/**"
+  ],
+  "lsp": {
+    "jdtls": {
+      "settings": {
+        "initialization_options": {
+          "settings": {
+            "java": {
+              "import": {
+                "exclusions": [
+                  "**/node_modules/**",
+                  "**/.metadata/**",
+                  "**/archetype-resources/**",
+                  "**/META-INF/maven/**",
+                  "**/.worktrees/**",
+                  "**/tmp/**"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

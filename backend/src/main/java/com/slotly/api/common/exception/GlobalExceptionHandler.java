@@ -5,15 +5,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -43,6 +47,18 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadableRequest(
+            HttpMessageNotReadableException exception
+    ) {
+        return response(HttpStatus.BAD_REQUEST, "Invalid request body", null, "BAD_REQUEST");
+    }
+
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, ServletRequestBindingException.class})
+    public ResponseEntity<ApiResponse<Void>> handleInvalidRequestParameter(Exception exception) {
+        return response(HttpStatus.BAD_REQUEST, "Invalid or missing request parameter", null, "BAD_REQUEST");
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ApiResponse<Void>> handleResponseStatus(
             ResponseStatusException exception
@@ -59,7 +75,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleDatabase(
             DataAccessException exception
     ) {
-        logger.error("Database operation failed", exception);
+        logFailure("Database operation failed", exception);
         return response(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "A database operation failed",
@@ -84,7 +100,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleUnexpected(
             Exception exception
     ) {
-        logger.error("Unexpected request failure", exception);
+        logFailure("Unexpected request failure", exception);
         return response(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred",
@@ -107,6 +123,11 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.status(status).body(body);
+    }
+
+    private void logFailure(String message, Exception exception) {
+        String errorId = UUID.randomUUID().toString();
+        logger.error("[{}] {} | details: slotly.log", errorId, message, exception);
     }
 
     private String codeFor(HttpStatus status) {

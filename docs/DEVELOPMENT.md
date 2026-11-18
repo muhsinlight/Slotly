@@ -2,7 +2,17 @@
 
 [← Slotly](../README.md)
 
+## Servis sorumlulukları ve pilot sınırları
+
+Mekân/hizmet/haftalık saat yönetimi `PlaceService`, özel günler `BusinessCalendarService`, uygun saatler `AvailabilityService`, kapasite hesabı `BookingCapacityService`, randevu işlemleri `BookingService` ve FIFO/teklif akışı `WaitlistService` tarafından yönetilir. Controller'lar kullandıkları dar servis sözleşmesine bağlanır.
+
+Rezervasyon, teklif ve kapasite değişiklikleri aynı mekân satırını kilitler. Kontrol ve güncelleme aynı transaction içinde kalır; yalnız `@Transactional` eklemek eşzamanlı istekleri tek başına sıralamaz. Kapasite, devam eden/gelecek onaylı randevular ile aktif tekliflerin en yüksek eşzamanlı yükünden düşük olamaz. Ardışık kayıtların aynı ana denk gelen bitiş ve başlangıcı iki kapasite olarak sayılmaz.
+
+Pilot tek backend örneğine göre hazırlanmıştır. Giriş/kurtarma istek sınırları ve SSE abonelikleri süreç belleğindedir. Yeniden başlatmada hız sınırları sıfırlanır; birden fazla örnekte sınırlar paylaşılmaz ve teklif olayları diğer örneğin SSE bağlantısına doğrudan ulaşmaz. Frontend yedek yenilemesi bildirim gecikmesini azaltır. Yatay ölçeklemeden önce ortak hız sınırı ve örnekler arası olay dağıtımı gerekir. JWT'nin localStorage içinde saklanması ve oturum yenileme yaklaşımı pilot öncesinde değerlendirilecek açık karardır.
+
 ## Geliştirme kontrolleri
+
+Test, derleme ve push çıktıları varsayılan olarak terminalde tutulur. Dosyaya kayıt gerektiğinde proje kökünde log oluşturmayın; Git dışında tutulan `tmp/verification/` dizininde işlem başına sabit ad kullanın: `backend.log`, `build.log`, `browser.log`, `api.log` veya `push.log`. Her çalıştırmada aynı dosyanın üzerine yazın; özellik veya tarih içeren yeni adlarla dosya biriktirmeyin. Bu geçici çıktılar, aşağıda açıklanan backend çalışma loglarından ayrıdır.
 
 Windows'ta GitHub'a göndermeden önce CI kontrollerinin tamamını proje kökünden çalıştırın (Docker Desktop, Java 25 ve Node.js 24 gerekir):
 
@@ -10,7 +20,7 @@ Windows'ta GitHub'a göndermeden önce CI kontrollerinin tamamını proje kökü
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check.ps1
 ```
 
-Komut backend `verify`, yedek geri yükleme, `npm ci`, frontend tür kontrolü/derleme ve Chromium tarayıcı testlerini sırayla çalıştırır; ilk hatada durur. Test veritabanları geçicidir. Chromium ilk kullanımda indirilir.
+Komut backend `verify`, yedek geri yükleme, `pnpm install --frozen-lockfile`, frontend tür kontrolü/derleme ve Chromium tarayıcı testlerini sırayla çalıştırır; ilk hatada durur. Test veritabanları geçicidir. Chromium ilk kullanımda indirilir.
 
 `scripts/check.ps1` yerel bir dosyadır; `.gitignore` kapsamındadır ve GitHub'a gönderilmez. Yeni bir klonda kullanmak için önce dosyayı `scripts/` klasörüne ayrıca kopyalayın. Her `git push` öncesinde otomatik çalışması için her yeni klonda bir kez kurun:
 
@@ -35,15 +45,15 @@ Frontend TypeScript kontrolü ve üretim derlemesi:
 
 ```powershell
 cd frontend
-npm run build
+pnpm run build
 ```
 
 Mobil müşteri akışının tarayıcı testi (gerçek API, ayrı ve geçici PostgreSQL):
 
 ```powershell
 cd frontend
-npm ci
-npx playwright install chromium
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
 cd ..
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-browser.ps1
 ```
@@ -54,7 +64,7 @@ Tarayıcı ortamı veritabanı için 5434, API için 8081 ve arayüz için 4173 
 
 ### Yedek ve geri yükleme
 
-Yerel backend test betiği ve CI, yalnızca geçici test veritabanında `pg_dump`/`pg_restore` denemesi yapar. Kopya `slotly_restore_test` veritabanında özel günler dahil yedi uygulama tablosunun kayıt sayıları ve içerik checksum'ları karşılaştırılır; ardından kopya kaldırılır. Bu kontrol canlı yedeklerin saklanması ve gerçek ortamda geri dönüş denemesinin yerine geçmez.
+Yerel backend test betiği ve CI, yalnızca geçici test veritabanında `pg_dump`/`pg_restore` denemesi yapar. Kopya `slotly_restore_test` veritabanında `backend/verify-restore.mjs` listesindeki tabloların tamamının kayıt sayıları ve içerik checksum'ları karşılaştırılır; ardından kopya kaldırılır. Bu kontrol canlı yedeklerin saklanması ve gerçek ortamda geri dönüş denemesinin yerine geçmez.
 
 Canlı PostgreSQL veritabanını düzenli yedekleyin, şifreli kopyayı veritabanı sunucusunun dışında tutun ve pilot öncesinde ayrı bir veritabanına geri yükleyerek deneyin. Geri yüklemeyi canlı veritabanının üzerine test etmeyin.
 
@@ -85,3 +95,21 @@ docker compose down
 
 Bu komut veritabanı volume'unu korur. Yerel veritabanını ve içindeki verileri de silmek için `docker compose down -v` kullanılır.
 
+
+## Backend logları
+
+Konsol kısa hata izi gösterir; tam stack trace çalışma dizinine göre logs/slotly.log dosyasına yazılır. Beklenmeyen API ve veritabanı hatalarında köşeli parantezdeki UUID ile dosyada arama yapılabilir. API yanıt sözleşmesi değişmez. Başlangıç hataları da aynı konsol/dosya düzenini kullanır.
+
+Dosyalar günlük veya 10 MB olduğunda döner; 14 günlük geçmiş ve toplam 200 MB sınırı uygulanır. Dizin slotly.logging.directory ile değiştirilebilir. Paket ayrıntısı gerektiğinde logging.level.org.springframework=DEBUG gibi bir ayarla geçici açılabilir. Log dosyaları teknik hata mesajları içerebilir; erişimi sınırlandırın.
+
+
+### Servis AOP
+Servis proxy çağrıları süre ve sonuç türünü DEBUG seviyesinde kaydeder.
+Açmak için logging.level.com.slotly.api.common.aop.ServiceLoggingAspect=DEBUG kullanılır.
+Argümanlar, dönüş değerleri ve hata mesajları bu kayda eklenmez.
+@OwnedPlace ilk iki UUID argümanı ownerId/placeId olan mekân ve randevu listeleme
+metotlarında sahipliği doğrular; lock=true mevcut mekân kilidini korur.
+Sıra: log (-10), transaction (0), sahiplik (10), servis gövdesi.
+Proxy içinden yapılan aynı nesne çağrıları AOP'den geçmez.
+Randevu kimliğinden sahiplik çıkaran sonuç/iptal işlemleri ve takvim kuralları
+mevcut açık kontrollerini korur.

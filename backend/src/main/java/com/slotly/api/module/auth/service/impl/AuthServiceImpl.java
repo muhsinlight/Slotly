@@ -24,7 +24,7 @@ import java.time.Instant;
 import java.util.Date;
 
 @Service
-public class AuthServiceImpl implements com.slotly.api.module.auth.service.AuthService {
+public class AuthServiceImpl implements AuthService {
     private static final long ACCESS_TOKEN_LIFETIME_SECONDS = 3600;
 
     private final UserRepository userRepository;

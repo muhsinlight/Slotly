@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AuthPageLayout from '../components/AuthPageLayout.vue'
 import { request } from '../lib/api'
 import { clearAuth } from '../composables/auth'
+import { passwordSizeError } from '../lib/password'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,7 +20,8 @@ const error = ref('')
 
 async function submit(): Promise<void> {
   if (busy.value) return
-  error.value = ''
+  error.value = resetting.value ? passwordSizeError(password.value) : ''
+  if (error.value) return
   if (resetting.value && password.value !== confirmation.value) {
     error.value = 'Parolalar eşleşmiyor.'
     return
@@ -51,8 +53,8 @@ async function submit(): Promise<void> {
     <p v-else-if="resetting && !token" role="alert">Sıfırlama bağlantısı eksik. Yeni bağlantı iste.</p>
     <form v-else class="auth-form" @submit.prevent="submit">
       <template v-if="resetting">
-        <label>Yeni parola<input v-model="password" type="password" autocomplete="new-password" minlength="10" maxlength="100" required :disabled="busy"></label>
-        <label>Yeni parolayı tekrar yaz<input v-model="confirmation" type="password" autocomplete="new-password" minlength="10" maxlength="100" required :disabled="busy"></label>
+        <label>Yeni parola<input v-model="password" type="password" autocomplete="new-password" minlength="10" required :disabled="busy"></label>
+        <label>Yeni parolayı tekrar yaz<input v-model="confirmation" type="password" autocomplete="new-password" minlength="10" required :disabled="busy"></label>
       </template>
       <label v-else>E-posta<input v-model="email" type="email" autocomplete="email" maxlength="254" required :disabled="busy"></label>
       <button class="button primary" :disabled="busy">{{ busy ? 'İşleniyor…' : resetting ? 'Parolayı değiştir' : 'Sıfırlama bağlantısı iste' }}</button>

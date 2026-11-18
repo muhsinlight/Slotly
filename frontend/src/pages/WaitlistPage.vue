@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import {
-  entries, feedLoading as loading, feedError, markOffersRead, now,
+  deadline, entries, feedLoading as loading, feedError, markOffersRead, now, statusAt,
   refreshEntries as loadEntries, unreadOffers as unreadCount, type WaitlistEntry,
 } from '../composables/waitlist'
 import { request } from '../lib/api'
@@ -12,19 +12,16 @@ const busyId = ref('')
 const actionError = ref('')
 const error = computed(() => actionError.value || feedError.value)
 const notice = ref('')
-const orderedEntries = computed(() => [...entries.value].sort((a, b) => {
+const orderedEntries = computed(() => {
+  const current = entries.value.map(entry => ({ ...entry, status: statusAt(entry, now.value) }))
   const priority = (entry: WaitlistEntry) => entry.status === 'OFFERED' ? 0 : entry.status === 'WAITING' ? 1 : 2
-  return priority(a) - priority(b) || Date.parse(b.startsAt) - Date.parse(a.startsAt)
-}))
+  return current.sort((a, b) => priority(a) - priority(b) || Date.parse(b.startsAt) - Date.parse(a.startsAt))
+})
 
 function timeRemaining(entry: WaitlistEntry): string {
   if (!entry.offerExpiresAt) return ''
-  const seconds = Math.max(0, Math.ceil((Date.parse(entry.offerExpiresAt) - now.value) / 1000))
+  const seconds = Math.max(0, Math.ceil((deadline(entry) - now.value) / 1000))
   return String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0')
-}
-
-function isExpired(entry: WaitlistEntry): boolean {
-  return entry.status === 'OFFERED' && (!entry.offerExpiresAt || Date.parse(entry.offerExpiresAt) <= now.value)
 }
 
 function statusLabel(status: WaitlistEntry['status']): string {
@@ -41,7 +38,7 @@ function statusLabel(status: WaitlistEntry['status']): string {
 
 async function act(entry: WaitlistEntry, action: 'accept' | 'decline' | 'leave'): Promise<void> {
   if (busyId.value) return
-  if (action === 'accept' && isExpired(entry)) {
+  if (statusAt(entry, Date.now()) === 'EXPIRED') {
     await loadEntries()
     actionError.value = 'Teklifin süresi dolmuş. Durumu sunucudan yeniledim.'
     return
@@ -71,7 +68,7 @@ onMounted(loadEntries)
     <main id="waitlist" class="section waitlist-page">
       <div class="section-heading">
         <div><span class="eyebrow">BEKLEME LİSTESİ</span><h1>Tekliflerin</h1></div>
-        <p>Teklif geldiğinde 30 dakika içinde kabul edebilirsin.</p>
+        <p>Teklifini en geç 30 dakika içinde ve randevu başlamadan kabul edebilirsin.</p>
       </div>
       <p v-if="unreadCount" class="waitlist-notice" role="status">
         {{ unreadCount }} okunmamış teklifin var.
@@ -86,14 +83,14 @@ onMounted(loadEntries)
           <div class="appointment-info">
             <b>{{ entry.offeringName }}</b>
             <small>{{ entry.placeName }} · {{ new Date(entry.startsAt).toLocaleString('tr-TR', { dateStyle: 'long', timeStyle: 'short' }) }}</small>
-            <small v-if="entry.status === 'OFFERED' && entry.offerExpiresAt" class="offer-countdown" :class="{ expired: isExpired(entry) }">
-              {{ isExpired(entry) ? 'Teklif doğrulanıyor…' : `Kalan süre ${timeRemaining(entry)}` }} · Son: {{ new Date(entry.offerExpiresAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) }}
+            <small v-if="entry.status === 'OFFERED'" class="offer-countdown">
+              Kalan süre {{ timeRemaining(entry) }} · Son: {{ new Date(deadline(entry)).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) }}
             </small>
           </div>
           <span class="status" :class="{ 'waitlist-offer-status': entry.status === 'OFFERED' }">{{ statusLabel(entry.status) }}</span>
           <div v-if="entry.status === 'OFFERED'" class="waitlist-actions">
-            <button class="button primary" :disabled="Boolean(busyId) || isExpired(entry)" @click="act(entry, 'accept')">{{ busyId === entry.id ? 'Gönderiliyor…' : 'Kabul et' }}</button>
-            <button class="text-button cancel" :disabled="Boolean(busyId) || isExpired(entry)" @click="act(entry, 'decline')">Reddet</button>
+            <button class="button primary" :disabled="Boolean(busyId)" @click="act(entry, 'accept')">{{ busyId === entry.id ? 'Gönderiliyor…' : 'Kabul et' }}</button>
+            <button class="text-button cancel" :disabled="Boolean(busyId)" @click="act(entry, 'decline')">Reddet</button>
           </div>
           <button v-else-if="entry.status === 'WAITING'" class="text-button cancel" :disabled="Boolean(busyId)" @click="act(entry, 'leave')">Listeden ayrıl</button>
           <RouterLink v-else-if="entry.status === 'ACCEPTED'" class="text-button" to="/appointments">Randevuyu gör →</RouterLink>

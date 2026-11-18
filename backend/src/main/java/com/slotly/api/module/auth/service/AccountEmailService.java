@@ -36,20 +36,28 @@ public class AccountEmailService {
         this.frontendUrl = frontendUrl.replaceAll("/$", "");
     }
 
-    public record EmailStatus(String email, boolean verified) {
+    public record EmailStatus(String email, boolean verified, String pendingEmail) {
     }
 
     @Transactional(readOnly = true)
     public EmailStatus status(UUID userId) {
-        return jdbc.query("SELECT email, verified FROM account_emails WHERE id = ?",
-            (row, index) -> new EmailStatus(row.getString("email"), row.getBoolean("verified")), userId)
-            .stream().findFirst().orElse(new EmailStatus(null, false));
+        return jdbc.query("""
+            SELECT COALESCE(a.email, p.destination) AS email, a.verified, p.destination
+            FROM account_emails a
+            LEFT JOIN account_tokens p ON p.user_id = a.id AND p.purpose = 'VERIFY_EMAIL'
+                AND p.consumed_at IS NULL AND p.expires_at > ?
+            WHERE a.id = ?
+            """, (row, index) -> new EmailStatus(
+                row.getString("email"), row.getBoolean("verified"), row.getString("destination")
+            ), Timestamp.from(clock.instant()), userId)
+            .stream().findFirst().orElse(new EmailStatus(null, false, null));
     }
 
     @Transactional
     public void requestVerification(UUID userId, String address) {
         lockUser(userId);
         String email = address.strip().toLowerCase(Locale.ROOT);
+        lockAddress(email);
         Instant now = clock.instant();
         var previous = jdbc.queryForList("SELECT last_requested_at FROM account_emails WHERE id = ?", userId);
         if (!previous.isEmpty()) {
@@ -58,18 +66,18 @@ public class AccountEmailService {
                 throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Bir dakika sonra yeniden dene.");
             }
         }
-        // The advisory lock serializes competing claims for the same normalized address.
-        jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtext(?))", email);
-        Integer claimed = jdbc.queryForObject(
-            "SELECT count(*) FROM account_emails WHERE email = ? AND id <> ?", Integer.class, email, userId);
-        if (claimed != null && claimed > 0) {
+        boolean claimed = Boolean.TRUE.equals(jdbc.queryForObject("""
+            SELECT EXISTS (SELECT 1 FROM account_emails WHERE email = ? AND id <> ?)
+                OR EXISTS (SELECT 1 FROM account_tokens WHERE destination = ? AND user_id <> ?
+                    AND purpose = 'VERIFY_EMAIL' AND consumed_at IS NULL AND expires_at > ?)
+            """, Boolean.class, email, userId, email, userId, Timestamp.from(now)));
+        if (claimed) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Bu adres kullanılamıyor.");
         }
         jdbc.update("""
-            INSERT INTO account_emails(id, email, verified, last_requested_at) VALUES (?, ?, false, ?)
-            ON CONFLICT (id) DO UPDATE SET email = excluded.email,
-                verified = false, last_requested_at = excluded.last_requested_at
-            """, userId, email, Timestamp.from(now));
+            INSERT INTO account_emails(id, last_requested_at) VALUES (?, ?)
+            ON CONFLICT (id) DO UPDATE SET last_requested_at = excluded.last_requested_at
+            """, userId, Timestamp.from(now));
         issueToken(userId, email, "VERIFY_EMAIL", "/verify-email", Duration.ofMinutes(30));
     }
 
@@ -77,24 +85,34 @@ public class AccountEmailService {
     public void verify(String token) {
         String hash = hash(token);
         var candidates = jdbc.queryForList(
-            "SELECT user_id FROM account_tokens WHERE token_hash = ? AND purpose = 'VERIFY_EMAIL'", hash);
+            "SELECT user_id, destination FROM account_tokens WHERE token_hash = ? AND purpose = 'VERIFY_EMAIL'", hash);
         if (candidates.isEmpty()) {
             throw invalidToken();
         }
         UUID userId = (UUID) candidates.getFirst().get("user_id");
+        String email = (String) candidates.getFirst().get("destination");
         lockUser(userId);
-        var rows = jdbc.queryForList("""
+        lockAddress(email);
+        Timestamp now = Timestamp.from(clock.instant());
+        int consumed = jdbc.update("""
             UPDATE account_tokens SET consumed_at = ? WHERE token_hash = ? AND purpose = 'VERIFY_EMAIL'
-                AND consumed_at IS NULL AND expires_at > ? RETURNING destination
-            """, Timestamp.from(clock.instant()), hash, Timestamp.from(clock.instant()));
-        if (rows.isEmpty()) {
+                AND consumed_at IS NULL AND expires_at > ?
+            """, now, hash, now);
+        if (consumed == 0) {
             throw invalidToken();
         }
-        int updated = jdbc.update("UPDATE account_emails SET verified = true WHERE id = ? AND email = ?",
-            userId, rows.getFirst().get("destination"));
-        if (updated != 1) {
+        int updated = jdbc.update("UPDATE account_emails SET email = ?, verified = true WHERE id = ?", email, userId);
+        if (updated == 0) {
             throw invalidToken();
         }
+        jdbc.update("""
+            UPDATE account_tokens SET consumed_at = ? WHERE user_id = ? AND purpose = 'RESET_PASSWORD'
+                AND destination <> ? AND consumed_at IS NULL
+            """, now, userId, email);
+    }
+
+    private void lockAddress(String email) {
+        jdbc.queryForList("SELECT pg_advisory_xact_lock(1, hashtext(?))", email);
     }
 
     void lockUser(UUID userId) {
@@ -111,16 +129,17 @@ public class AccountEmailService {
         random.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         UUID id = UUID.randomUUID();
+        Timestamp expiresAt = Timestamp.from(now.plus(lifetime));
         jdbc.update("""
             INSERT INTO account_tokens(id, user_id, token_hash, purpose, destination, expires_at)
             VALUES (?, ?, ?, ?, ?, ?)
-            """, id, userId, hash(token), purpose, email, Timestamp.from(now.plus(lifetime)));
+            """, id, userId, hash(token), purpose, email, expiresAt);
         jdbc.update("""
             INSERT INTO email_outbox(id, user_id, recipient, subject, body, deduplication_key,
-                next_attempt_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                reference_id, expires_at, next_attempt_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, UUID.randomUUID(), userId, email,
             purpose.equals("VERIFY_EMAIL") ? "Slotly e-posta doğrulama" : "Slotly parola sıfırlama",
-            frontendUrl + path + "#token=" + token, "account:" + id, Timestamp.from(now), Timestamp.from(now));
+            frontendUrl + path + "#token=" + token, "account:" + id, id, expiresAt, Timestamp.from(now), Timestamp.from(now));
     }
 
     static String hash(String token) {

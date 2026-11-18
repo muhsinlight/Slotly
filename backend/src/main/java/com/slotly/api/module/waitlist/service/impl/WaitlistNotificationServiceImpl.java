@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 @Service
-public class WaitlistNotificationServiceImpl implements com.slotly.api.module.waitlist.service.WaitlistNotificationService {
+public class WaitlistNotificationServiceImpl implements WaitlistNotificationService {
     private final Map<UUID, Set<SseEmitter>> subscribers = new ConcurrentHashMap<>();
 
     public SseEmitter subscribe(UUID customerId) {

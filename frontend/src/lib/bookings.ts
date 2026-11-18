@@ -1,4 +1,5 @@
 import { request } from './api'
+import { calendarRange } from './businessTime'
 
 export type Place = {
   id: string
@@ -7,6 +8,7 @@ export type Place = {
   address: string
   capacity: number
   active: boolean
+  timeZone: string
 }
 
 export type Offering = {
@@ -26,7 +28,7 @@ export type Appointment = {
   offeringName: string
   startsAt: string
   endsAt: string
-  status: 'CONFIRMED' | 'CANCELLED'
+  status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW'
 }
 
 export type BookingSelection = { placeId: string; offeringId: string; startsAt: string }
@@ -43,16 +45,14 @@ export const joinWaitlist = (selection: BookingSelection) => request('/waitlist'
   method: 'POST', body: JSON.stringify(selection),
 })
 
-export function localDate(): string {
-  const date = new Date()
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset())
-  return date.toISOString().slice(0, 10)
+export function listSlots(place: Place, offeringId: string, date: string, signal?: AbortSignal): Promise<string[]> {
+  const query = new URLSearchParams({ offeringId, ...calendarRange(date, place.timeZone) })
+  return request<string[]>(`/places/${place.id}/availability?${query}`, { signal })
 }
 
-export function listSlots(placeId: string, offeringId: string, date: string, signal?: AbortSignal): Promise<string[]> {
-  const start = new Date(`${date}T00:00:00`)
-  const end = new Date(start)
-  end.setDate(end.getDate() + 1)
-  const query = new URLSearchParams({ offeringId, from: start.toISOString(), to: end.toISOString() })
-  return request<string[]>(`/places/${placeId}/availability?${query}`, { signal })
+export const appointmentStatusLabels: Record<Appointment['status'], string> = {
+  CONFIRMED: 'Onaylandı',
+  CANCELLED: 'İptal edildi',
+  COMPLETED: 'Tamamlandı',
+  NO_SHOW: 'Gelmedi',
 }

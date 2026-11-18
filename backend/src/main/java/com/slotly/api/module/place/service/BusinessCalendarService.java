@@ -18,11 +18,16 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -56,17 +61,41 @@ public class BusinessCalendarService {
     public record OpeningInterval(LocalTime opensAt, LocalTime closesAt) {
     }
 
+    public ZoneId timeZone() {
+        return zone;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<LocalDate, List<OpeningInterval>> intervals(UUID placeId, LocalDate from, LocalDate to) {
+        Map<DayOfWeek, List<OpeningInterval>> weekly = new EnumMap<>(DayOfWeek.class);
+        for (var hour : hours.findByPlaceIdOrderByDayOfWeekAscOpensAtAsc(placeId)) {
+            weekly.computeIfAbsent(hour.getDayOfWeek(), ignored -> new ArrayList<>())
+                .add(new OpeningInterval(hour.getOpensAt(), hour.getClosesAt()));
+        }
+        Map<LocalDate, List<OpeningInterval>> result = new HashMap<>();
+        for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
+            result.put(date, weekly.getOrDefault(date.getDayOfWeek(), List.of()));
+        }
+        for (var exception : exceptions.findByPlaceIdAndDateBetween(placeId, from, to)) {
+            result.put(exception.getDate(), exceptionIntervals(exception));
+        }
+        return result;
+    }
+
     @Transactional(readOnly = true)
     public List<OpeningInterval> intervals(UUID placeId, LocalDate date) {
         var exception = exceptions.findByPlaceIdAndDate(placeId, date);
         if (exception.isPresent()) {
-            CalendarException value = exception.get();
-            return value.isClosed() ? List.of() : List.of(new OpeningInterval(value.getOpensAt(), value.getClosesAt()));
+            return exceptionIntervals(exception.get());
         }
         return hours.findByPlaceIdOrderByDayOfWeekAscOpensAtAsc(placeId).stream()
             .filter(hour -> hour.getDayOfWeek() == date.getDayOfWeek())
             .map(hour -> new OpeningInterval(hour.getOpensAt(), hour.getClosesAt()))
             .toList();
+    }
+
+    private List<OpeningInterval> exceptionIntervals(CalendarException exception) {
+        return exception.isClosed() ? List.of() : List.of(new OpeningInterval(exception.getOpensAt(), exception.getClosesAt()));
     }
 
     @Transactional(readOnly = true)
