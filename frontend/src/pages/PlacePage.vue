@@ -4,24 +4,38 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import { role, token } from '../composables/auth'
 import { ApiError } from '../lib/api'
-import { createAppointment, getPlace, joinWaitlist, listOfferings, listSlots, localDate, type Offering, type Place } from '../lib/bookings'
+import { createAppointment, getPlace, joinWaitlist, listOfferings, listSlots, type Offering, type Place } from '../lib/bookings'
+import { businessDate, possibleStarts, timeFormatter } from '../lib/businessTime'
 
 const route = useRoute()
 const router = useRouter()
 const place = ref<Place | null>(null)
 const offerings = ref<Offering[]>([])
 const selectedOfferingId = ref('')
-const selectedDate = ref(localDate())
+const selectedDate = ref('')
 const slots = ref<string[]>([])
 const selectedSlot = ref('')
 const desiredTime = ref('09:00')
+const desiredOffset = ref('')
 const loading = ref(true)
 const slotsLoading = ref(false)
 const submitting = ref(false)
 const error = ref('')
 const slotError = ref('')
-const selectedOffering = computed(() => offerings.value.find((item) => item.id === selectedOfferingId.value) || null)
+const services = computed(() => offerings.value.filter(item => item.kind === 'SERVICE'))
+const selectedOffering = computed(() => services.value.find((item) => item.id === selectedOfferingId.value) || null)
 const customerAllowed = computed(() => !token.value || role.value === 'CUSTOMER')
+const waitTimes = computed(() => {
+  if (!place.value || !selectedDate.value || !desiredTime.value) return []
+  try {
+    return possibleStarts(selectedDate.value, desiredTime.value, place.value.timeZone)
+  } catch {
+    return []
+  }
+})
+const requestedTime = computed(() => waitTimes.value.find(time => time.offset === desiredOffset.value) || waitTimes.value[0])
+const slotFormat = computed(() => place.value && slots.value[0]
+  ? timeFormatter(slots.value[0], place.value.timeZone) : undefined)
 const startingPrice = computed(() => offerings.value.length
   ? Math.min(...offerings.value.map((offering) => offering.price)) : null)
 const money = (value: number) => new Intl.NumberFormat('tr-TR', {
@@ -36,6 +50,7 @@ function selectionPath(): string {
     offering: selectedOfferingId.value,
     date: selectedDate.value,
     wait: desiredTime.value,
+    ...(waitTimes.value.length > 1 && requestedTime.value ? { offset: requestedTime.value.offset } : {}),
     ...(selectedSlot.value ? { slot: selectedSlot.value } : {}),
   })
   return `/places/${route.params.id}?${query}`
@@ -51,23 +66,25 @@ async function rememberSelection(): Promise<void> {
 
 async function loadPlace(): Promise<void> {
   const version = ++loadVersion
+  slotController?.abort()
   ready = false
   loading.value = true
+  place.value = null
   error.value = ''
   try {
     const id = String(route.params.id)
     const [placeResponse, offeringsResponse] = await Promise.all([getPlace(id), listOfferings(id)])
     if (version !== loadVersion) return
     place.value = placeResponse
-    offerings.value = offeringsResponse.filter((item) => item.kind === 'SERVICE')
-    selectedOfferingId.value = offerings.value.some((item) => item.id === route.query.offering)
-      ? String(route.query.offering) : offerings.value[0]?.id || ''
-    if (typeof route.query.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(route.query.date) && route.query.date >= localDate()) {
-      selectedDate.value = route.query.date
-    }
-    if (typeof route.query.wait === 'string' && /^\d{2}:\d{2}$/.test(route.query.wait)) {
-      desiredTime.value = route.query.wait
-    }
+    offerings.value = offeringsResponse.filter((item) => item.active)
+    selectedOfferingId.value = services.value.some((item) => item.id === route.query.offering)
+      ? String(route.query.offering) : services.value[0]?.id || ''
+    const today = businessDate(placeResponse.timeZone)
+    selectedDate.value = typeof route.query.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(route.query.date) && route.query.date >= today
+      ? route.query.date : today
+    desiredTime.value = typeof route.query.wait === 'string' && /^\d{2}:\d{2}$/.test(route.query.wait)
+      ? route.query.wait : '09:00'
+    desiredOffset.value = typeof route.query.offset === 'string' ? route.query.offset : ''
     const restoredSlot = typeof route.query.slot === 'string' ? route.query.slot : ''
     ready = true
     await loadSlots(restoredSlot)
@@ -82,13 +99,14 @@ async function loadSlots(preserveSlot = ''): Promise<void> {
   slotController?.abort()
   slots.value = []
   selectedSlot.value = ''
+  slotsLoading.value = false
+  slotError.value = ''
   if (!place.value || !selectedOfferingId.value || !selectedDate.value) return
   const controller = new AbortController()
   slotController = controller
   slotsLoading.value = true
-  slotError.value = ''
   try {
-    const result = await listSlots(place.value.id, selectedOfferingId.value, selectedDate.value, controller.signal)
+    const result = await listSlots(place.value, selectedOfferingId.value, selectedDate.value, controller.signal)
     if (controller.signal.aborted) return
     slots.value = result
     if (preserveSlot && result.includes(preserveSlot)) selectedSlot.value = preserveSlot
@@ -116,7 +134,7 @@ async function confirmBooking(): Promise<void> {
       await router.push(loginPath())
       return
     }
-    const latestSlots = await listSlots(place.value.id, selectedOfferingId.value, selectedDate.value)
+    const latestSlots = await listSlots(place.value, selectedOfferingId.value, selectedDate.value)
     if (!latestSlots.includes(selectedSlot.value)) {
       slots.value = latestSlots
       selectedSlot.value = ''
@@ -136,6 +154,11 @@ async function confirmBooking(): Promise<void> {
 
 async function waitForTime(): Promise<void> {
   if (submitting.value || !place.value || !selectedOffering.value || !desiredTime.value || !customerAllowed.value) return
+  const requested = requestedTime.value
+  if (!requested) {
+    error.value = 'Bu tarih ve saat işletmenin saat diliminde geçerli değil. Başka bir saat seç.'
+    return
+  }
   submitting.value = true
   error.value = ''
   try {
@@ -147,7 +170,7 @@ async function waitForTime(): Promise<void> {
     await joinWaitlist({
       placeId: place.value.id,
       offeringId: selectedOfferingId.value,
-      startsAt: new Date(`${selectedDate.value}T${desiredTime.value}:00`).toISOString(),
+      startsAt: requested.instant,
     })
     await router.push('/waitlist')
   } catch (cause) {
@@ -193,7 +216,7 @@ onBeforeUnmount(() => {
               <h1>{{ place.name }}</h1>
               <p>{{ place.description || 'Hizmet seçip sana uygun bir zaman bul.' }}</p>
               <div class="place-facts">
-                <span>{{ offerings.length }} hizmet</span>
+                <span>{{ services.length }} hizmet</span>
                 <span v-if="startingPrice !== null">{{ money(startingPrice) }}'den başlayan fiyatlar</span>
                 <span>Online randevu</span>
               </div>
@@ -215,20 +238,21 @@ onBeforeUnmount(() => {
             <h2>1. Hizmet seç</h2>
             <label class="booking-field">Hizmet
               <select v-model="selectedOfferingId" :disabled="submitting">
-                <option v-for="offering in offerings" :key="offering.id" :value="offering.id">
+                <option v-for="offering in services" :key="offering.id" :value="offering.id">
                   {{ offering.name }} · {{ offering.durationMinutes }} dk · {{ offering.price.toFixed(2) }} ₺
                 </option>
               </select>
             </label>
-            <p v-if="!offerings.length" class="empty">Bu mekânda şu anda randevu alınabilecek hizmet yok.</p>
+            <p v-if="!services.length" class="empty">Bu mekânda şu anda randevu alınabilecek hizmet yok.</p>
             <label class="booking-field">Tarih
-              <input v-model="selectedDate" type="date" :min="localDate()" :disabled="!selectedOffering || submitting">
+              <input v-model="selectedDate" type="date" :min="businessDate(place.timeZone)" :disabled="!selectedOffering || submitting">
             </label>
             <h2>2. Saat seç</h2>
+            <p class="empty">İşletmenin saat dilimi · {{ place.timeZone }}</p>
             <p v-if="slotsLoading" class="empty" role="status">Uygun saatler aranıyor…</p>
             <div v-else-if="slots.length" class="booking-slots">
               <button v-for="slot in slots" :key="slot" class="slot" :class="{ selected: selectedSlot === slot }" :aria-pressed="selectedSlot === slot" :disabled="submitting" @click="chooseSlot(slot)">
-                {{ new Date(slot).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) }}
+                {{ slotFormat?.format(Date.parse(slot)) }}
               </button>
             </div>
             <p v-else-if="selectedOffering" class="empty">Bu tarihte uygun saat bulunamadı. Başka bir gün seç.</p>
@@ -237,6 +261,11 @@ onBeforeUnmount(() => {
             <form v-if="selectedOffering && customerAllowed" class="waitlist-join" @submit.prevent="waitForTime">
               <p>İstediğin saat dolu mu? Boşalırsa sırana göre teklif alabilirsin.</p>
               <label>Beklemek istediğin saat<input v-model="desiredTime" type="time" required :disabled="submitting"></label>
+              <label v-if="waitTimes.length > 1">Aynı saat bu tarihte iki kez yaşanıyor
+                <select :value="requestedTime?.offset" :disabled="submitting" @change="desiredOffset = ($event.target as HTMLSelectElement).value">
+                  <option v-for="time in waitTimes" :key="time.offset" :value="time.offset">{{ desiredTime }} (UTC{{ time.offset }})</option>
+                </select>
+              </label>
               <button class="text-button" :disabled="submitting || slotsLoading">{{ submitting ? 'Gönderiliyor…' : 'Bekleme listesine katıl' }}</button>
             </form>
           </section>
@@ -246,8 +275,8 @@ onBeforeUnmount(() => {
             <dl>
               <div><dt>İşletme</dt><dd>{{ place.name }}</dd></div>
               <div><dt>Hizmet</dt><dd>{{ selectedOffering?.name || 'Seçilmedi' }}</dd></div>
-              <div><dt>Tarih</dt><dd>{{ new Date(`${selectedDate}T12:00:00`).toLocaleDateString('tr-TR', { dateStyle: 'long' }) }}</dd></div>
-              <div><dt>Saat</dt><dd>{{ selectedSlot ? new Date(selectedSlot).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : 'Seçilmedi' }}</dd></div>
+              <div><dt>Tarih</dt><dd>{{ selectedDate ? new Date(`${selectedDate}T12:00:00Z`).toLocaleDateString('tr-TR', { dateStyle: 'long', timeZone: 'UTC' }) : 'Seçilmedi' }}</dd></div>
+              <div><dt>Saat</dt><dd>{{ selectedSlot ? slotFormat?.format(Date.parse(selectedSlot)) : 'Seçilmedi' }}</dd></div>
               <div><dt>Süre</dt><dd>{{ selectedOffering?.durationMinutes ?? '—' }} dk</dd></div>
               <div><dt>Ücret</dt><dd>{{ selectedOffering ? `${selectedOffering.price.toFixed(2)} ₺` : '—' }}</dd></div>
             </dl>
@@ -260,23 +289,23 @@ onBeforeUnmount(() => {
           <section class="booking-help">
             <span class="eyebrow">PLANLAR DEĞİŞEBİLİR</span>
             <h2>İstediğin saat doluysa sıranı al.</h2>
-            <p>Bekleme listesine katıl. Yer açıldığında sırana göre teklif gelir; kabul etmek için 30 dakikan olur.</p>
+            <p>Yer açıldığında sırana göre teklif gelir. Teklifini en geç 30 dakika içinde ve randevu başlamadan kabul edebilirsin.</p>
             <div><span aria-hidden="true">↗</span> Tekliflerini Bekleme listesi ekranından takip edebilirsin.</div>
           </section>
           </div>
         </div>
         <section v-if="offerings.length" class="place-services" aria-labelledby="place-services-title">
           <div class="place-services-heading">
-            <div><span class="eyebrow">HİZMET MENÜSÜ</span><h2 id="place-services-title">Kendine uygun olanı bul</h2></div>
-            <p>Tüm hizmetleri incele, seçimini randevuna ekle.</p>
+            <h2 id="place-services-title">Hizmet ve ürün fiyatları</h2>
           </div>
           <div class="place-service-grid">
-            <button v-for="offering in offerings" :key="offering.id" class="place-service-tile" :class="{ chosen: selectedOfferingId === offering.id }" :aria-pressed="selectedOfferingId === offering.id" :disabled="submitting" @click="selectedOfferingId = offering.id">
-              <span class="service-tile-top"><span>{{ offering.durationMinutes }} dk</span><span>{{ selectedOfferingId === offering.id ? 'Seçili ✓' : 'Hizmeti seç ↗' }}</span></span>
+            <article v-for="offering in offerings" :key="offering.id" class="place-service-tile" :class="{ chosen: selectedOfferingId === offering.id }">
+              <span class="service-tile-top"><span>{{ offering.kind === 'SERVICE' ? `${offering.durationMinutes} dk` : 'Ürün' }}</span></span>
               <strong>{{ offering.name }}</strong>
-              <span class="service-tile-description">{{ offering.description || 'Uygun saatleri görmek için bu hizmeti seç.' }}</span>
+              <span v-if="offering.description" class="service-tile-description">{{ offering.description }}</span>
               <b>{{ money(offering.price) }}</b>
-            </button>
+              <button v-if="offering.kind === 'SERVICE'" type="button" class="text-button" :aria-pressed="selectedOfferingId === offering.id" :disabled="submitting" @click="selectedOfferingId = offering.id">{{ selectedOfferingId === offering.id ? 'Seçili ✓' : 'Hizmeti seç ↗' }}</button>
+            </article>
           </div>
         </section>
       </template>
@@ -455,10 +484,9 @@ onBeforeUnmount(() => {
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: 16px;
-  cursor: pointer;
   overflow-wrap: anywhere;
 }
-.place-service-tile:hover, .place-service-tile.chosen {
+.place-service-tile.chosen {
   border-color: #ad95ef;
   background: #f7f2ff;
 }

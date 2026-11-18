@@ -6,6 +6,7 @@ import type { Role } from '../composables/auth'
 import { saveAuth } from '../composables/auth'
 import { request } from '../lib/api'
 import { safeReturnTo } from '../lib/navigation'
+import { passwordSizeError } from '../lib/password'
 
 const router = useRouter()
 const username = ref('')
@@ -18,8 +19,9 @@ const errorMessage = ref('')
 
 async function register(): Promise<void> {
   if (busy.value) return
+  errorMessage.value = passwordSizeError(password.value)
+  if (errorMessage.value) return
   busy.value = true
-  errorMessage.value = ''
 
   try {
     await request('/auth/register', {
@@ -85,7 +87,6 @@ async function register(): Promise<void> {
           type="password"
           required
           minlength="10"
-          maxlength="100"
           autocomplete="new-password"
           placeholder="En az 10 karakter"
         >

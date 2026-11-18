@@ -35,10 +35,12 @@ export default defineConfig({
         CORS_ALLOWED_ORIGINS: 'http://127.0.0.1:4173',
         BUSINESS_TIME_ZONE: 'Europe/Istanbul',
         LOGIN_RATE_LIMIT_ATTEMPTS: '1000',
+        SLOTLY_ADMIN_USERNAME: 'browser-admin',
+        SLOTLY_ADMIN_PASSWORD: 'BrowserAdmin2026!',
       },
     },
     {
-      command: 'npm run dev -- --host 127.0.0.1 --port 4173 --strictPort',
+      command: 'pnpm run dev --host 127.0.0.1 --port 4173 --strictPort',
       url: 'http://127.0.0.1:4173',
       reuseExistingServer: false,
       env: { VITE_API_BASE_URL: 'http://127.0.0.1:8081' },

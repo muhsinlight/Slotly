@@ -19,8 +19,18 @@ export const feedLoading = ref(false)
 export const feedError = ref('')
 export const now = ref(Date.now())
 const readIds = ref<string[]>([])
-export const activeOffers = computed(() => entries.value.filter((entry) =>
-  entry.status === 'OFFERED' && entry.offerExpiresAt && Date.parse(entry.offerExpiresAt) > now.value))
+
+export function deadline(entry: WaitlistEntry): number {
+  const start = Date.parse(entry.startsAt)
+  return entry.status === 'OFFERED' ? Math.min(start, entry.offerExpiresAt ? Date.parse(entry.offerExpiresAt) : 0) : start
+}
+
+export function statusAt(entry: WaitlistEntry, timestamp: number): WaitlistEntry['status'] {
+  return (entry.status === 'WAITING' || entry.status === 'OFFERED') && timestamp >= deadline(entry)
+    ? 'EXPIRED' : entry.status
+}
+
+export const activeOffers = computed(() => entries.value.filter((entry) => statusAt(entry, now.value) === 'OFFERED'))
 export const unreadOffers = computed(() => activeOffers.value.filter((entry) => !readIds.value.includes(entry.id)).length)
 
 let storageKey = ''
@@ -163,7 +173,25 @@ export function useWaitlistFeed(): void {
     readStoredOffers(accessToken)
     void refreshEntries()
     void maintainEvents(accessToken, controller.signal)
-    const checkedExpirations = new Set<string>()
+    const stopDeadlines = watch(entries, (list, _, onInvalidate) => {
+      let timer: number
+      function schedule(): void {
+        now.value = Date.now()
+        const next = list.reduce((earliest, entry) => {
+          if (entry.status !== 'WAITING' && entry.status !== 'OFFERED') return earliest
+          const end = deadline(entry)
+          return end > now.value ? Math.min(earliest, end) : earliest
+        }, Infinity)
+        if (Number.isFinite(next)) {
+          timer = window.setTimeout(() => {
+            if (Date.now() >= next) void refreshEntries()
+            schedule()
+          }, Math.min(next - now.value, 2_147_483_647))
+        }
+      }
+      schedule()
+      onInvalidate(() => window.clearTimeout(timer))
+    })
     const refreshTimer = window.setInterval(() => { void refreshEntries() }, 30_000)
     const clockTimer = window.setInterval(() => {
       now.value = Date.now()
@@ -172,17 +200,10 @@ export function useWaitlistFeed(): void {
         window.dispatchEvent(new CustomEvent('slotly:unauthorized'))
         return
       }
-      for (const entry of entries.value) {
-        if (entry.status !== 'OFFERED' || !entry.offerExpiresAt) continue
-        const key = entry.id + ':' + entry.offerExpiresAt
-        if (Date.parse(entry.offerExpiresAt) <= now.value && !checkedExpirations.has(key)) {
-          checkedExpirations.add(key)
-          void refreshEntries()
-        }
-      }
     }, 1000)
     onCleanup(() => {
       controller.abort()
+      stopDeadlines()
       window.clearInterval(refreshTimer)
       window.clearInterval(clockTimer)
     })
