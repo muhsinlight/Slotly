@@ -11,14 +11,14 @@
 - Bekleme listesine katılma; teklif kabul etme, reddetme veya listeden ayrılma.
 - Yalnız etkin ve pozitif süreli `SERVICE` kayıtları randevuya alınır. `PRODUCT` kayıtları keşif ve fiyat listesinde görünür, randevuya bağlanmaz.
 - Uygun saatler çalışma aralığının açılışından başlayarak hizmet süresi kadar adımlarla üretilir. Arama aralığı en fazla 31 gündür.
-- Kapasite, onaylı randevular ve süresi dolmamış bekleme tekliflerinin zaman aralığı çakışmalarına göre hesaplanır. Her teklif bir kişilik kapasiteyi en fazla 30 dakika ayırır. Kabulde ayrılan yer randevuya dönüşür; ret, listeden ayrılma ve süre sonunda serbest kalır. Eşzamanlı rezervasyonlarda kontrol ve kayıt mekân kilidi altında yapılır.
+- Kapasite, onaylı randevular ve süresi dolmamış bekleme tekliflerinin zaman aralığı çakışmalarına göre hesaplanır. Her teklif bir kişilik kapasiteyi en fazla 30 dakika ve en geç randevu başlangıcına kadar ayırır. Kabulde ayrılan yer randevuya dönüşür; ret, listeden ayrılma ve süre sonunda serbest kalır. Eşzamanlı rezervasyonlarda kontrol ve kayıt mekân kilidi altında yapılır.
 - Teklif süresi dolunca sıradaki müşteriye geçiş, zamanlanmış kontrole ek olarak yeni rezervasyon isteğinde de mekân kilidi altında kontrol edilir; doğrudan rezervasyon sıradaki müşterinin yerini alamaz.
-- Çalışma saatleri varsayılan olarak `Europe/Istanbul` saat diliminde yorumlanır.
+- Çalışma saatleri varsayılan olarak `Europe/Istanbul` saat diliminde yorumlanır. Mekân yanıtındaki `timeZone` alanı işletmenin IANA saat dilimini belirtir; istemci gün sınırlarını ve elle girilen saatleri bu bölgede hesaplar.
 - Tarihe özel kapalı gün veya açılış–kapanış saati, o tarihin haftalık saatlerinin yerine geçer. Özel saat silinince haftalık takvim yeniden geçerli olur. Değişiklik onaylı bir randevuyu veya aktif bekleme teklifini çalışma saatleri dışında bırakırsa `409` ile reddedilir; haftalık saat silme işlemi de aynı kurala tabidir.
 
 ## Kimlik doğrulama ve yanıt biçimi
 
-- Kayıt alanları: `username` (en fazla 40), `password` (10–100), `firstName` ve `lastName` (en fazla 80), `role` (`OWNER` veya `CUSTOMER`).
+- Kayıt alanları: `username` (en fazla 40), `password` (en az 10 karakter ve en fazla 72 UTF-8 bayt), `firstName` ve `lastName` (en fazla 80), `role` (`OWNER` veya `CUSTOMER`). Aynı parola sınırı sıfırlama isteğinde de uygulanır.
 - Korumalı uçlara `Authorization: Bearer <accessToken>` başlığı ekleyin. JWT ömrü 3600 saniyedir.
 - Oturum sunucuda tutulmaz; cookie veya token yenileme ucu yoktur. Web arayüzü token'ı `localStorage` içindeki `slotly-token` anahtarında saklar. Çıkış token'ı tarayıcıdan siler.
 - Pilot sürüm mevcut bir saatlik Bearer oturumunu kullanır. Süresi dolan token veya API 401 yanıtında oturum temizlenir ve uygulama içi dönüş adresiyle tekrar giriş istenir. Cookie ile kimlik doğrulama kullanılmadığından CSRF koruması kapalıdır; cookie/refresh değişikliği bu sözleşme ve CSRF korumasıyla birlikte ele alınmalıdır.
@@ -82,6 +82,10 @@ Aşağıdaki uçlar yalnızca ilgili mekânın sahibi olan `OWNER` rolüyle kull
 | `POST /api/owner/places/{placeId}/business-hours` | Haftanın günü için çalışma aralığı ekler. |
 | `DELETE /api/owner/places/{placeId}/business-hours/{id}` | Çalışma aralığını siler. |
 | `GET /api/owner/appointments?placeId={uuid}&from={instant}&to={instant}` | Sahibin mekân ve zaman aralığına göre randevularını listeler. |
+
+### Yönetici görünümü
+
+`GET /api/admin/overview?appointmentPage=0&waitlistPage=0&size=20&q=` yalnız `ADMIN` rolüne açıktır. Sayfalar sıfırdan başlar; `size` 1–100 arasındadır. Yanıttaki `appointments` ve `waitlist` seçili sayfanın kayıtlarıdır. `appointmentTotal` ve `waitlistTotal` arama sonucunun toplamlarını, `upcoming`, `waiting` ve `offers` genel sayaçları gösterir.
 
 ### Randevu ve bekleme listesi
 

@@ -10,8 +10,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
@@ -50,6 +52,11 @@ public class GlobalExceptionHandler {
             HttpMessageNotReadableException exception
     ) {
         return response(HttpStatus.BAD_REQUEST, "Invalid request body", null, "BAD_REQUEST");
+    }
+
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, ServletRequestBindingException.class})
+    public ResponseEntity<ApiResponse<Void>> handleInvalidRequestParameter(Exception exception) {
+        return response(HttpStatus.BAD_REQUEST, "Invalid or missing request parameter", null, "BAD_REQUEST");
     }
 
     @ExceptionHandler(ResponseStatusException.class)
