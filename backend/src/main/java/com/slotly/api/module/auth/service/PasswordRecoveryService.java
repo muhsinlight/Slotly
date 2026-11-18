@@ -46,7 +46,8 @@ public class PasswordRecoveryService {
         UUID userId = (UUID) rows.getFirst().get("id");
         emails.lockUser(userId);
         // Recheck after taking the account lock: the address may have changed meanwhile.
-        if (!emails.status(userId).equals(new AccountEmailService.EmailStatus(email, true))) {
+        var current = emails.status(userId);
+        if (!current.verified() || !email.equals(current.email())) {
             return;
         }
         emails.issueToken(userId, email, "RESET_PASSWORD", "/reset-password", Duration.ofMinutes(15));

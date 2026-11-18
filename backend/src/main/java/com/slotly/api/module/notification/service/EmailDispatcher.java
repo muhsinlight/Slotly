@@ -4,6 +4,7 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.UUID;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,11 +14,26 @@ public class EmailDispatcher {
     private final JdbcTemplate jdbc;
     private final Clock clock;
     private final ObjectProvider<EmailGateway> gateway;
+    private final boolean enabled;
 
-    public EmailDispatcher(JdbcTemplate jdbc, Clock clock, ObjectProvider<EmailGateway> gateway) {
+    public EmailDispatcher(
+        JdbcTemplate jdbc,
+        Clock clock,
+        ObjectProvider<EmailGateway> gateway,
+        @Value("${slotly.email.enabled:false}") boolean enabled
+    ) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.gateway = gateway;
+        this.enabled = enabled;
+    }
+
+    public boolean canDeliver() {
+        return enabledGateway() != null;
+    }
+
+    private EmailGateway enabledGateway() {
+        return enabled ? gateway.getIfAvailable() : null;
     }
 
     @Transactional
@@ -27,7 +43,7 @@ public class EmailDispatcher {
 
     @Transactional
     public boolean deliver(UUID messageId) {
-        EmailGateway provider = gateway.getIfAvailable();
+        EmailGateway provider = enabledGateway();
         if (provider == null) {
             return false;
         }
@@ -52,20 +68,26 @@ public class EmailDispatcher {
         int attempts = ((Number) message.get("attempts")).intValue() + 1;
         try {
             provider.send(id, (String) message.get("recipient"), (String) message.get("subject"), (String) message.get("body"));
-            jdbc.update("UPDATE email_outbox SET state = 'SENT', sent_at = ?, attempts = ?, body = '' WHERE id = ?",
-                Timestamp.from(clock.instant()), attempts, id);
         } catch (RuntimeException exception) {
-            jdbc.update("UPDATE email_outbox SET state = ?, attempts = ?, next_attempt_at = ? WHERE id = ?",
-                attempts >= 5 ? "FAILED" : "PENDING", attempts,
-                Timestamp.from(clock.instant().plusSeconds(Math.min(3600, 60L << (attempts - 1)))), id);
+            if (attempts >= 5) {
+                jdbc.update("UPDATE email_outbox SET state = 'FAILED', attempts = ?, body = '' WHERE id = ?",
+                    attempts, id);
+            } else {
+                jdbc.update("""
+                    UPDATE email_outbox SET attempts = ?, next_attempt_at = ?, next_publish_at = NULL WHERE id = ?
+                    """, attempts, Timestamp.from(clock.instant().plusSeconds(60L << (attempts - 1))), id);
+            }
+            return true;
         }
+        jdbc.update("UPDATE email_outbox SET state = 'SENT', sent_at = ?, attempts = ?, body = '' WHERE id = ?",
+            Timestamp.from(clock.instant()), attempts, id);
         return true;
     }
 
     private boolean eligible(UUID id) {
         return Boolean.TRUE.equals(jdbc.queryForObject("""
             SELECT CASE WHEN o.kind = 'ACCOUNT' THEN EXISTS (
-                SELECT 1 FROM account_tokens t WHERE o.deduplication_key = 'account:' || t.id
+                SELECT 1 FROM account_tokens t WHERE o.reference_id = t.id
                     AND t.consumed_at IS NULL AND t.expires_at > ?
             ) WHEN o.kind = 'OFFER' THEN EXISTS (
                 SELECT 1 FROM waitlist_entries w

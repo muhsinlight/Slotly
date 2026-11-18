@@ -8,6 +8,7 @@ import com.slotly.api.module.user.entity.User;
 import com.slotly.api.module.user.entity.UserRole;
 import com.slotly.api.module.user.repository.UserRepository;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -83,12 +85,61 @@ class PasswordRecoveryIntegrationTests {
     }
 
     @Test
-    void expiredTokensAndAddressChangesPreventReset() {
+    void expiredTokensPreventReset() {
         emails.verify(latestToken("VERIFY_EMAIL"));
         recovery.request(email);
         String token = latestToken("RESET_PASSWORD");
         jdbc.update("UPDATE account_tokens SET expires_at = now() - interval '1 second' WHERE user_id = ?", userId);
         assertThrows(ResponseStatusException.class, () -> recovery.reset(token, "NewPassword2026!"));
+    }
+
+    @Test
+    void recoveryKeepsUsingTheVerifiedAddressUntilTheChangeIsConfirmed() {
+        emails.verify(latestToken("VERIFY_EMAIL"));
+        String replacement = "new-" + email;
+        jdbc.update("UPDATE account_emails SET last_requested_at = now() - interval '2 minutes' WHERE id = ?", userId);
+        emails.requestVerification(userId, replacement);
+        assertEquals(new AccountEmailService.EmailStatus(email, true, replacement), emails.status(userId));
+        recovery.request(replacement);
+        assertEquals(0, resetCount());
+        recovery.request(email);
+        assertEquals(1, resetCount());
+
+        String reset = latestToken("RESET_PASSWORD");
+        emails.verify(latestToken("VERIFY_EMAIL"));
+        assertEquals(new AccountEmailService.EmailStatus(replacement, true, null), emails.status(userId));
+        assertThrows(ResponseStatusException.class, () -> recovery.reset(reset, "NewPassword2026!"));
+    }
+
+    @Test
+    void registrationAndResetEnforceTheSameUtf8PasswordLimit() throws Exception {
+        String boundary = "ş".repeat(36);
+        String tooLong = boundary + "a";
+        String registration = """
+            {"username":"%s","password":"%s","firstName":"Api","lastName":"Test","role":"CUSTOMER"}
+            """;
+        mvc.perform(post("/api/auth/register").contentType("application/json").characterEncoding(StandardCharsets.UTF_8)
+            .content(registration.formatted("pw-" + username, tooLong)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.data.password").value("Parola UTF-8 kodlamasında en fazla 72 bayt olabilir."));
+        mvc.perform(post("/api/auth/register").contentType("application/json").characterEncoding(StandardCharsets.UTF_8)
+            .content(registration.formatted("pw-" + username, boundary)))
+            .andExpect(status().isCreated());
+
+        emails.verify(latestToken("VERIFY_EMAIL"));
+        recovery.request(email);
+        String reset = latestToken("RESET_PASSWORD");
+        String body = """
+            {"token":"%s","password":"%s"}
+            """;
+        mvc.perform(post("/api/auth/reset-password").contentType("application/json").characterEncoding(StandardCharsets.UTF_8)
+            .content(body.formatted(reset, tooLong)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.data.password").value("Parola UTF-8 kodlamasında en fazla 72 bayt olabilir."));
+        mvc.perform(post("/api/auth/reset-password").contentType("application/json").characterEncoding(StandardCharsets.UTF_8)
+            .content(body.formatted(reset, boundary)))
+            .andExpect(status().isOk());
+        assertNotNull(auth.login(new LoginRequest(username, boundary)));
     }
 
     @Test

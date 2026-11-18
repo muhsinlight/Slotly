@@ -1,5 +1,6 @@
 package com.slotly.api.module.auth.dto.request;
 
+import com.slotly.api.module.auth.validation.AccountPassword;
 import com.slotly.api.module.user.entity.UserRole;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -10,8 +11,7 @@ public record RegisterRequest(
     @Size(max = 40)
     String username,
 
-    @NotBlank
-    @Size(min = 10, max = 100)
+    @AccountPassword
     String password,
 
     @NotBlank

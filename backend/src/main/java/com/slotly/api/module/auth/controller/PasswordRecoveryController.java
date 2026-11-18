@@ -2,6 +2,7 @@ package com.slotly.api.module.auth.controller;
 
 import com.slotly.api.common.response.ApiResponse;
 import com.slotly.api.module.auth.service.PasswordRecoveryService;
+import com.slotly.api.module.auth.validation.AccountPassword;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -21,7 +22,10 @@ public class PasswordRecoveryController {
     public record RecoveryRequest(@NotBlank @Email @Size(max = 254) String email) {
     }
 
-    public record ResetRequest(@NotBlank @Size(max = 100) String token, @NotBlank @Size(min = 10, max = 100) String password) {
+    public record ResetRequest(
+        @NotBlank @Size(max = 100) String token,
+        @AccountPassword String password
+    ) {
     }
 
     @PostMapping("/forgot-password")

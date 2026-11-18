@@ -16,18 +16,23 @@ import java.time.*;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
-@SpringBootTest
+@SpringBootTest(properties = "slotly.email.enabled=true")
 @ActiveProfiles("integration-test")
 @Import(NotificationIntegrationTests.GatewayConfig.class)
 class NotificationIntegrationTests {
@@ -58,6 +63,8 @@ class NotificationIntegrationTests {
     private FakeGateway gateway;
     @Autowired
     private PlatformTransactionManager transactions;
+    @MockitoBean
+    private EmailDeliveryScheduler deliveryScheduler;
 
     @TestConfiguration
     static class GatewayConfig {
@@ -69,9 +76,11 @@ class NotificationIntegrationTests {
 
     static class FakeGateway implements EmailGateway {
         final Set<UUID> delivered = new HashSet<>();
+        final Map<UUID, Integer> attempts = new HashMap<>();
         boolean fail;
 
         public void send(UUID messageId, String recipient, String subject, String body) {
+            attempts.merge(messageId, 1, Integer::sum);
             if (fail) {
                 throw new IllegalStateException("Synthetic provider failure");
             }
@@ -106,6 +115,19 @@ class NotificationIntegrationTests {
     }
 
     @Test
+    void pendingAddressChangeKeepsOfferDeliveryToTheVerifiedAddress() {
+        var offer = offer(true);
+        String contact = emails.status(offer.customerId()).email();
+        jdbc.update("UPDATE account_emails SET last_requested_at = now() - interval '2 minutes' WHERE id = ?",
+            offer.customerId());
+        emails.requestVerification(offer.customerId(), "next-" + contact);
+        UUID id = messageId(offer.entryId());
+        assertTrue(dispatcher.deliver(id));
+        assertEquals("SENT", state(offer.entryId()));
+        assertEquals(contact, jdbc.queryForObject("SELECT recipient FROM email_outbox WHERE id = ?", String.class, id));
+    }
+
+    @Test
     void deliveryFailureRetriesWithSameId() {
         var offer = offer(true);
         gateway.fail = true;
@@ -120,6 +142,64 @@ class NotificationIntegrationTests {
         drain();
         assertEquals("SENT", state(offer.entryId()));
         assertEquals(2, jdbc.queryForObject("SELECT attempts FROM email_outbox WHERE id = ?", Integer.class, id));
+    }
+
+    @Test
+    void publisherRestartsAfterALostDeliveryAndDuplicateMessagesAreHarmless() {
+        var offer = offer(true);
+        UUID id = messageId(offer.entryId());
+        jdbc.update("UPDATE email_outbox SET created_at = now() - interval '2 days' WHERE id = ?", id);
+        RabbitTemplate broker = mock(RabbitTemplate.class);
+        Clock clock = Clock.systemUTC();
+        var publisher = new RabbitEmailQueue(jdbc, clock, broker, dispatcher);
+        publisher.publishReady();
+        publisher.publishReady();
+        verify(broker, times(1)).convertAndSend("slotly.email.ready", id.toString());
+        assertEquals("PENDING", state(offer.entryId()));
+
+        Clock afterLease = Clock.offset(clock, Duration.ofMinutes(3));
+        var restarted = new RabbitEmailQueue(jdbc, afterLease, broker, dispatcher);
+        restarted.publishReady();
+        verify(broker, times(2)).convertAndSend("slotly.email.ready", id.toString());
+        restarted.consume(id.toString());
+        restarted.consume(id.toString());
+        assertEquals("SENT", state(offer.entryId()));
+        assertEquals(1, gateway.attempts.get(id));
+    }
+
+    @Test
+    void replayAfterInterruptedCommitUsesTheOriginalProviderKey() {
+        var offer = offer(true);
+        UUID id = messageId(offer.entryId());
+        new TransactionTemplate(transactions).executeWithoutResult(transaction -> {
+            assertTrue(dispatcher.deliver(id));
+            transaction.setRollbackOnly();
+        });
+        assertEquals("PENDING", state(offer.entryId()));
+        assertTrue(dispatcher.deliver(id));
+        assertEquals(2, gateway.attempts.get(id));
+        assertTrue(gateway.delivered.contains(id));
+        assertEquals("SENT", state(offer.entryId()));
+    }
+
+    @Test
+    void permanentAccountFailureErasesTheLinkAndKeepsDeliveryHistory() {
+        User user = user();
+        emails.requestVerification(user.getId(), suffix() + "@example.test");
+        UUID id = notifications.deliveries(user.getId()).getFirst().id();
+        gateway.fail = true;
+        try {
+            for (int attempt = 1; attempt <= 5; attempt++) {
+                jdbc.update("UPDATE email_outbox SET next_attempt_at = now() - interval '1 second' WHERE id = ?", id);
+                assertTrue(dispatcher.deliver(id));
+            }
+        } finally {
+            gateway.fail = false;
+        }
+        assertEquals("FAILED", notifications.deliveries(user.getId()).getFirst().state());
+        assertEquals(5, jdbc.queryForObject("SELECT attempts FROM email_outbox WHERE id = ?", Integer.class, id));
+        assertEquals("", jdbc.queryForObject("SELECT body FROM email_outbox WHERE id = ?", String.class, id));
+        assertFalse(dispatcher.deliver(id));
     }
 
     @Test
