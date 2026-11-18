@@ -6,8 +6,7 @@ import com.slotly.api.module.booking.dto.response.AppointmentResponse;
 import com.slotly.api.module.booking.entity.Appointment;
 import com.slotly.api.module.booking.entity.AppointmentStatus;
 import com.slotly.api.module.booking.repository.AppointmentRepository;
-import com.slotly.api.module.booking.service.AvailabilityService;
-import com.slotly.api.module.booking.service.BookingCapacityService;
+import com.slotly.api.module.booking.service.AppointmentReservation;
 import com.slotly.api.module.booking.service.BookingService;
 import com.slotly.api.module.place.entity.Offering;
 import com.slotly.api.module.place.entity.Place;
@@ -15,7 +14,7 @@ import com.slotly.api.module.place.repository.OfferingRepository;
 import com.slotly.api.module.place.repository.PlaceRepository;
 import com.slotly.api.module.user.entity.User;
 import com.slotly.api.module.user.repository.UserRepository;
-import com.slotly.api.module.waitlist.service.WaitlistService;
+import com.slotly.api.module.waitlist.service.WaitlistQueue;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.http.HttpStatus;
@@ -37,9 +36,8 @@ public class BookingServiceImpl implements BookingService {
     private final OfferingRepository offerings;
     private final AppointmentRepository appointments;
     private final UserRepository users;
-    private final BookingCapacityService capacity;
-    private final AvailabilityService availability;
-    private final WaitlistService waitlist;
+    private final AppointmentReservation reservations;
+    private final WaitlistQueue queue;
     private final Clock clock;
 
     public BookingServiceImpl(
@@ -47,47 +45,25 @@ public class BookingServiceImpl implements BookingService {
         OfferingRepository offerings,
         AppointmentRepository appointments,
         UserRepository users,
-        BookingCapacityService capacity,
-        AvailabilityService availability,
-        WaitlistService waitlist,
+        AppointmentReservation reservations,
+        WaitlistQueue queue,
         Clock clock
     ) {
         this.places = places;
         this.offerings = offerings;
         this.appointments = appointments;
         this.users = users;
-        this.capacity = capacity;
-        this.availability = availability;
-        this.waitlist = waitlist;
+        this.reservations = reservations;
+        this.queue = queue;
         this.clock = clock;
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public AppointmentResponse createAppointment(UUID customerId, AppointmentRequest request) {
         Place place = places.findLockedById(request.placeId()).orElseThrow(() -> notFound("Place not found"));
-        waitlist.expirePlaceOffers(place);
         Offering offering = requireOffering(request.offeringId());
-        availability.ensureBookableOffering(place, offering);
-
-        Instant startsAt = request.startsAt();
-        Instant endsAt = startsAt.plusSeconds(offering.getDurationMinutes() * 60L);
-        if (!startsAt.isAfter(Instant.now(clock))) {
-            throw bad("Appointment must start in the future");
-        }
-        if (!availability.isValidServiceSlot(place.getId(), offering, startsAt, endsAt)) {
-            throw bad("Appointment is outside business hours");
-        }
-        if (appointments.existsByCustomerIdAndOfferingIdAndStartsAtAndStatus(
-            customerId, offering.getId(), startsAt, AppointmentStatus.CONFIRMED
-        )) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have this appointment");
-        }
-        if (!capacity.hasCapacity(place, startsAt, endsAt)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Place has no capacity for this time");
-        }
-
         User customer = users.findById(customerId).orElseThrow(() -> notFound("Customer not found"));
-        Appointment appointment = appointments.save(new Appointment(customer, place, offering, startsAt, endsAt));
+        Appointment appointment = reservations.reserve(customer, place, offering, request.startsAt(), null);
         return AppointmentResponse.from(appointment);
     }
 
@@ -119,7 +95,7 @@ public class BookingServiceImpl implements BookingService {
         }
 
         appointment.cancel();
-        waitlist.offerNext(place, appointment.getOffering(), appointment.getStartsAt());
+        queue.fillReleasedWindow(place, appointment.getStartsAt(), appointment.getEndsAt());
     }
 
     @Transactional(readOnly = true)

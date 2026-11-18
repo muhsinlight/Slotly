@@ -13,7 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.List;
+import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.UUID;
 
@@ -61,39 +61,57 @@ public class BookingCapacityService {
     }
 
     public boolean hasCapacity(Place place, Instant startsAt, Instant endsAt, UUID acceptedOfferId) {
-        List<Appointment> overlapping = appointments.findByPlaceIdAndStatusAndStartsAtLessThanAndEndsAtGreaterThan(
+        return schedule(place, startsAt, endsAt, acceptedOfferId).hasCapacity(startsAt, endsAt);
+    }
+
+    public CapacitySchedule schedule(Place place, Instant from, Instant to, UUID acceptedOfferId) {
+        var overlapping = appointments.findByPlaceIdAndStatusAndStartsAtLessThanAndEndsAtGreaterThan(
             place.getId(),
             AppointmentStatus.CONFIRMED,
-            endsAt,
-            startsAt
+            to,
+            from
         );
         TreeMap<Instant, Integer> changes = new TreeMap<>();
         for (Appointment appointment : overlapping) {
-            Instant start = appointment.getStartsAt().isBefore(startsAt) ? startsAt : appointment.getStartsAt();
-            Instant end = appointment.getEndsAt().isAfter(endsAt) ? endsAt : appointment.getEndsAt();
-            changes.merge(start, 1, Integer::sum);
-            changes.merge(end, -1, Integer::sum);
+            changes.merge(appointment.getStartsAt(), 1, Integer::sum);
+            changes.merge(appointment.getEndsAt(), -1, Integer::sum);
         }
-        List<WaitlistEntry> holds = waitlist
+        var holds = waitlist
             .findByPlaceIdAndStatusAndOfferExpiresAtGreaterThanAndRequestedStartsAtLessThanAndRequestedEndsAtGreaterThan(
-                place.getId(), WaitlistStatus.OFFERED, Instant.now(clock), endsAt, startsAt
+                place.getId(), WaitlistStatus.OFFERED, clock.instant(), to, from
             );
         for (WaitlistEntry hold : holds) {
             if (hold.getId().equals(acceptedOfferId)) {
                 continue;
             }
-            Instant start = hold.getRequestedStartsAt().isBefore(startsAt) ? startsAt : hold.getRequestedStartsAt();
-            Instant end = hold.getRequestedEndsAt().isAfter(endsAt) ? endsAt : hold.getRequestedEndsAt();
-            changes.merge(start, 1, Integer::sum);
-            changes.merge(end, -1, Integer::sum);
+            changes.merge(hold.getRequestedStartsAt(), 1, Integer::sum);
+            changes.merge(hold.getRequestedEndsAt(), -1, Integer::sum);
         }
+        TreeMap<Instant, Instant> fullPeriods = new TreeMap<>();
+        Instant fullSince = null;
         int active = 0;
-        for (int change : changes.values()) {
-            active += change;
-            if (active >= place.getCapacity()) {
-                return false;
+        for (var change : changes.entrySet()) {
+            active += change.getValue();
+            if (active >= place.getCapacity() && fullSince == null) {
+                fullSince = change.getKey();
+            } else if (active < place.getCapacity() && fullSince != null) {
+                fullPeriods.put(fullSince, change.getKey());
+                fullSince = null;
             }
         }
-        return true;
+        return new CapacitySchedule(fullPeriods);
+    }
+
+    public static final class CapacitySchedule {
+        private final NavigableMap<Instant, Instant> fullPeriods;
+
+        private CapacitySchedule(NavigableMap<Instant, Instant> fullPeriods) {
+            this.fullPeriods = fullPeriods;
+        }
+
+        public boolean hasCapacity(Instant startsAt, Instant endsAt) {
+            var lastFullPeriod = fullPeriods.lowerEntry(endsAt);
+            return lastFullPeriod == null || !lastFullPeriod.getValue().isAfter(startsAt);
+        }
     }
 }

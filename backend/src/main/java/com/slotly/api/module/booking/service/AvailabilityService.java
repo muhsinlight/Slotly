@@ -6,7 +6,6 @@ import com.slotly.api.module.place.entity.Place;
 import com.slotly.api.module.place.repository.OfferingRepository;
 import com.slotly.api.module.place.repository.PlaceRepository;
 import com.slotly.api.module.place.service.BusinessCalendarService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,11 +14,12 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Service
 public class AvailabilityService {
@@ -36,15 +36,14 @@ public class AvailabilityService {
         OfferingRepository offerings,
         BookingCapacityService capacity,
         Clock clock,
-        BusinessCalendarService calendar,
-        @Value("${slotly.business.time-zone:Europe/Istanbul}") String zone
+        BusinessCalendarService calendar
     ) {
         this.places = places;
         this.offerings = offerings;
         this.capacity = capacity;
         this.clock = clock;
         this.calendar = calendar;
-        this.zone = ZoneId.of(zone);
+        this.zone = calendar.timeZone();
     }
 
     @Transactional(readOnly = true)
@@ -60,60 +59,50 @@ public class AvailabilityService {
         }
 
         List<Instant> slots = new ArrayList<>();
-        long slotStepSeconds = offering.getDurationMinutes() * 60L;
-        LocalDateTime rangeStart = from.atZone(zone).toLocalDate().atStartOfDay();
-        LocalDateTime rangeEnd = to.atZone(zone).toLocalDate().atStartOfDay();
-
-        for (LocalDateTime date = rangeStart; !date.isAfter(rangeEnd); date = date.plusDays(1)) {
-            for (var businessHour : calendar.intervals(placeId, date.toLocalDate())) {
-
-                Instant slot = date.toLocalDate().atTime(businessHour.opensAt()).atZone(zone).toInstant();
-                while (slot.isBefore(from)) {
-                    slot = slot.plusSeconds(slotStepSeconds);
-                }
-                Instant businessClosing = date.toLocalDate()
-                    .atTime(businessHour.closesAt())
-                    .atZone(zone)
-                    .toInstant();
-
-                while (!slot.plusSeconds(slotStepSeconds).isAfter(businessClosing)) {
-                    Instant end = slot.plusSeconds(slotStepSeconds);
-                    if (!slot.isBefore(Instant.now(clock)) && !end.isAfter(to) && capacity.hasCapacity(place, slot, end)) {
-                        slots.add(slot);
-                    }
-                    slot = slot.plusSeconds(slotStepSeconds);
-                }
-            }
+        Duration step = Duration.ofMinutes(offering.getDurationMinutes());
+        LocalDate firstDate = from.atZone(zone).toLocalDate();
+        LocalDate lastDate = to.atZone(zone).toLocalDate();
+        var hours = calendar.intervals(placeId, firstDate, lastDate);
+        var schedule = capacity.schedule(place, from, to, null);
+        Instant now = clock.instant();
+        for (LocalDate date = firstDate; !date.isAfter(lastDate); date = date.plusDays(1)) {
+            slotStarts(date, hours.get(date), step)
+                .filter(slot -> slot.isAfter(now) && !slot.isBefore(from) && !slot.plus(step).isAfter(to))
+                .filter(slot -> schedule.hasCapacity(slot, slot.plus(step)))
+                .forEach(slots::add);
         }
         return slots;
     }
 
     public void ensureBookableOffering(Place place, Offering offering) {
-        if (!place.isActive() || !offering.isActive() || offering.getKind() != OfferingKind.SERVICE
-            || offering.getDurationMinutes() == null || !offering.getPlace().getId().equals(place.getId())) {
+        if (!isBookableOffering(place, offering)) {
             throw bad("Offering is not bookable at this place");
         }
     }
 
-    public boolean isValidServiceSlot(UUID placeId, Offering offering, Instant startsAt, Instant endsAt) {
-        LocalDateTime localStart = startsAt.atZone(zone).toLocalDateTime();
-        LocalDateTime localEnd = endsAt.atZone(zone).toLocalDateTime();
-        return calendar.intervals(placeId, localStart.toLocalDate())
-            .stream()
-            .anyMatch(hour -> isWithinHour(hour, offering, localStart, localEnd));
+    public boolean isBookableOffering(Place place, Offering offering) {
+        return place.isActive() && offering.isActive() && offering.getKind() == OfferingKind.SERVICE
+            && offering.getDurationMinutes() != null && offering.getDurationMinutes() > 0
+            && offering.getPlace().getId().equals(place.getId());
     }
 
-    private boolean isWithinHour(
-        BusinessCalendarService.OpeningInterval hour,
-        Offering offering,
-        LocalDateTime startsAt,
-        LocalDateTime endsAt
+    public boolean isValidServiceSlot(UUID placeId, Offering offering, Instant startsAt, Instant endsAt) {
+        LocalDate date = startsAt.atZone(zone).toLocalDate();
+        Duration step = Duration.ofMinutes(offering.getDurationMinutes());
+        return startsAt.plus(step).equals(endsAt)
+            && slotStarts(date, calendar.intervals(placeId, date), step).anyMatch(startsAt::equals);
+    }
+
+    private Stream<Instant> slotStarts(
+        LocalDate date,
+        List<BusinessCalendarService.OpeningInterval> intervals,
+        Duration step
     ) {
-        long offsetFromOpeningMinutes = Duration.between(hour.opensAt(), startsAt.toLocalTime()).toMinutes();
-        return !startsAt.toLocalTime().isBefore(hour.opensAt())
-            && !endsAt.toLocalTime().isAfter(hour.closesAt())
-            && startsAt.toLocalDate().equals(endsAt.toLocalDate())
-            && offsetFromOpeningMinutes % offering.getDurationMinutes() == 0;
+        return intervals.stream().flatMap(interval -> {
+            Instant open = date.atTime(interval.opensAt()).atZone(zone).toInstant();
+            Instant close = date.atTime(interval.closesAt()).atZone(zone).toInstant();
+            return Stream.iterate(open, slot -> !slot.plus(step).isAfter(close), slot -> slot.plus(step));
+        });
     }
 
     private Place requirePlace(UUID id) {

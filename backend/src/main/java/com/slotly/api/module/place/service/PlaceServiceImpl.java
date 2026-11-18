@@ -17,6 +17,7 @@ import com.slotly.api.module.place.repository.OfferingRepository;
 import com.slotly.api.module.place.repository.PlaceRepository;
 import com.slotly.api.module.user.entity.User;
 import com.slotly.api.module.user.repository.UserRepository;
+import com.slotly.api.module.waitlist.service.WaitlistQueue;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ public class PlaceServiceImpl implements PlaceService {
     private final UserRepository users;
     private final BusinessCalendarService calendar;
     private final BookingCapacityService capacity;
+    private final WaitlistQueue waitlist;
 
     public PlaceServiceImpl(
         PlaceRepository places,
@@ -40,7 +42,8 @@ public class PlaceServiceImpl implements PlaceService {
         BusinessHourRepository hours,
         UserRepository users,
         BusinessCalendarService calendar,
-        BookingCapacityService capacity
+        BookingCapacityService capacity,
+        WaitlistQueue waitlist
     ) {
         this.places = places;
         this.offerings = offerings;
@@ -48,11 +51,12 @@ public class PlaceServiceImpl implements PlaceService {
         this.users = users;
         this.calendar = calendar;
         this.capacity = capacity;
+        this.waitlist = waitlist;
     }
 
     @Transactional(readOnly = true)
     public List<PlaceResponse> publicPlaces() {
-        return places.findByActiveTrue().stream().map(PlaceResponse::from).toList();
+        return places.findByActiveTrue().stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -61,12 +65,12 @@ public class PlaceServiceImpl implements PlaceService {
         if (!place.isActive()) {
             throw notFound("Place not found");
         }
-        return PlaceResponse.from(place);
+        return toResponse(place);
     }
 
     @Transactional(readOnly = true)
     public List<PlaceResponse> myPlaces(UUID ownerId) {
-        return places.findByOwnerId(ownerId).stream().map(PlaceResponse::from).toList();
+        return places.findByOwnerId(ownerId).stream().map(this::toResponse).toList();
     }
 
     @Transactional
@@ -77,9 +81,10 @@ public class PlaceServiceImpl implements PlaceService {
             request.name(),
             request.description(),
             request.address(),
-            request.capacity()
+            request.capacity(),
+            request.active()
         );
-        return PlaceResponse.from(places.save(place));
+        return toResponse(places.save(place));
     }
 
     @Transactional
@@ -87,7 +92,8 @@ public class PlaceServiceImpl implements PlaceService {
     public PlaceResponse updatePlace(UUID ownerId, UUID placeId, PlaceRequest request) {
         Place place = requirePlace(placeId);
 
-        if (request.capacity() < place.getCapacity()) {
+        int previousCapacity = place.getCapacity();
+        if (request.capacity() < previousCapacity) {
             capacity.validateCapacityReduction(placeId, request.capacity());
         }
         place.update(
@@ -97,11 +103,14 @@ public class PlaceServiceImpl implements PlaceService {
             request.capacity(),
             request.active()
         );
-        return PlaceResponse.from(place);
+        if (request.capacity() > previousCapacity && place.isActive()) {
+            waitlist.fillAvailableCapacity(place);
+        }
+        return toResponse(place);
     }
 
     @Transactional
-    @OwnedPlace
+    @OwnedPlace(lock = true)
     public void deletePlace(UUID ownerId, UUID placeId) {
         Place place = requirePlace(placeId);
         place.update(place.getName(), place.getDescription(), place.getAddress(), place.getCapacity(), false);
@@ -136,13 +145,14 @@ public class PlaceServiceImpl implements PlaceService {
             request.description(),
             request.price(),
             request.durationMinutes(),
-            request.kind()
+            request.kind(),
+            request.active()
         );
         return OfferingResponse.from(offerings.save(offering));
     }
 
     @Transactional
-    @OwnedPlace
+    @OwnedPlace(lock = true)
     public OfferingResponse updateOffering(
         UUID ownerId,
         UUID placeId,
@@ -165,7 +175,7 @@ public class PlaceServiceImpl implements PlaceService {
     }
 
     @Transactional
-    @OwnedPlace
+    @OwnedPlace(lock = true)
     public void deleteOffering(UUID ownerId, UUID placeId, UUID offeringId) {
         Place place = requirePlace(placeId);
         Offering offering = requireOffering(offeringId);
@@ -213,6 +223,10 @@ public class PlaceServiceImpl implements PlaceService {
     @Transactional
     public void deleteHour(UUID ownerId, UUID placeId, UUID hourId) {
         calendar.deleteHour(ownerId, placeId, hourId);
+    }
+
+    private PlaceResponse toResponse(Place place) {
+        return PlaceResponse.from(place, calendar.timeZone());
     }
 
     private void validateOffering(OfferingRequest request) {

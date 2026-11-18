@@ -2,7 +2,7 @@ package com.slotly.api.module.waitlist.service.impl;
 
 import com.slotly.api.module.booking.dto.response.AppointmentResponse;
 import com.slotly.api.module.booking.entity.Appointment;
-import com.slotly.api.module.booking.repository.AppointmentRepository;
+import com.slotly.api.module.booking.service.AppointmentReservation;
 import com.slotly.api.module.booking.service.AvailabilityService;
 import com.slotly.api.module.booking.service.BookingCapacityService;
 import com.slotly.api.module.place.entity.Offering;
@@ -17,9 +17,10 @@ import com.slotly.api.module.waitlist.entity.WaitlistEntry;
 import com.slotly.api.module.waitlist.entity.WaitlistStatus;
 import com.slotly.api.module.waitlist.repository.WaitlistRepository;
 import com.slotly.api.module.waitlist.service.WaitlistService;
+import com.slotly.api.module.waitlist.service.WaitlistQueue;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -27,9 +28,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -37,43 +40,41 @@ public class WaitlistServiceImpl implements WaitlistService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    private static final Duration WAITLIST_OFFER_LIFETIME = Duration.ofMinutes(30);
     private final PlaceRepository places;
     private final OfferingRepository offerings;
-    private final AppointmentRepository appointments;
+    private final AppointmentReservation reservations;
     private final UserRepository users;
     private final WaitlistRepository waitlist;
     private final BookingCapacityService capacity;
     private final AvailabilityService availability;
     private final Clock clock;
-    private final ApplicationEventPublisher events;
+    private final WaitlistQueue queue;
 
     public WaitlistServiceImpl(
         PlaceRepository places,
         OfferingRepository offerings,
-        AppointmentRepository appointments,
+        AppointmentReservation reservations,
         UserRepository users,
         WaitlistRepository waitlist,
         BookingCapacityService capacity,
         AvailabilityService availability,
         Clock clock,
-        ApplicationEventPublisher events
+        WaitlistQueue queue
     ) {
         this.places = places;
         this.offerings = offerings;
-        this.appointments = appointments;
+        this.reservations = reservations;
         this.users = users;
         this.waitlist = waitlist;
         this.capacity = capacity;
         this.availability = availability;
         this.clock = clock;
-        this.events = events;
+        this.queue = queue;
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public WaitlistResponse joinWaitlist(UUID customerId, WaitlistRequest request) {
         Place place = places.findLockedById(request.placeId()).orElseThrow(() -> notFound("Place not found"));
-        expirePlaceOffers(place);
         Offering offering = requireOffering(request.offeringId());
         availability.ensureBookableOffering(place, offering);
 
@@ -85,6 +86,7 @@ public class WaitlistServiceImpl implements WaitlistService {
         if (!availability.isValidServiceSlot(place.getId(), offering, startsAt, endsAt)) {
             throw bad("Requested time is outside business hours");
         }
+        queue.advanceBeforeBooking(place, startsAt, endsAt);
         if (capacity.hasCapacity(place, startsAt, endsAt)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "The requested time is currently available");
         }
@@ -103,155 +105,93 @@ public class WaitlistServiceImpl implements WaitlistService {
         return WaitlistResponse.from(entry);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<WaitlistResponse> myWaitlist(UUID customerId) {
-        expireOffers();
+        Instant now = clock.instant();
         return waitlist.findByCustomerIdOrderByCreatedAtDesc(customerId)
             .stream()
-            .map(WaitlistResponse::from)
+            .map(entry -> WaitlistResponse.at(entry, now))
             .toList();
     }
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
     public AppointmentResponse acceptWaitlistOffer(UUID customerId, UUID entryId) {
-        WaitlistEntry entry = requireWaitlistEntry(customerId, entryId);
-        Place place = places.findLockedById(entry.getPlace().getId()).orElseThrow(() -> notFound("Place not found"));
-        entry = requireWaitlistEntry(customerId, entryId);
-        entityManager.refresh(entry);
+        WaitlistEntry entry = lockedEntry(customerId, entryId);
+        Place place = entry.getPlace();
+        ensureOpen(entry);
         if (entry.getStatus() != WaitlistStatus.OFFERED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "There is no active offer for this entry");
         }
-        if (!entry.getOfferExpiresAt().isAfter(Instant.now(clock))) {
+        Appointment appointment;
+        try {
+            appointment = reservations.reserve(entry.getCustomer(), place, entry.getOffering(),
+                entry.getRequestedStartsAt(), entry);
+        } catch (ResponseStatusException exception) {
             entry.changeStatus(WaitlistStatus.EXPIRED);
-            offerNext(place, entry.getOffering(), entry.getRequestedStartsAt());
-            throw new ResponseStatusException(HttpStatus.GONE, "The waitlist offer has expired");
+            queue.fillReleasedWindow(place, entry.getRequestedStartsAt(), entry.getRequestedEndsAt());
+            throw new ResponseStatusException(HttpStatus.CONFLICT, exception.getReason());
         }
-        if (!entry.getRequestedStartsAt().isAfter(Instant.now(clock))) {
-            entry.changeStatus(WaitlistStatus.EXPIRED);
-            throw new ResponseStatusException(HttpStatus.GONE, "The requested time has passed");
-        }
-        if (!capacity.hasCapacity(place, entry.getRequestedStartsAt(), entry.getRequestedEndsAt(), entry.getId())) {
-            entry.changeStatus(WaitlistStatus.EXPIRED);
-            offerNext(place, entry.getOffering(), entry.getRequestedStartsAt());
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "The requested time is no longer available");
-        }
-
         entry.changeStatus(WaitlistStatus.ACCEPTED);
-        Appointment appointment = appointments.save(new Appointment(
-            entry.getCustomer(),
-            place,
-            entry.getOffering(),
-            entry.getRequestedStartsAt(),
-            entry.getRequestedEndsAt()
-        ));
-        offerNext(place, entry.getOffering(), entry.getRequestedStartsAt());
         return AppointmentResponse.from(appointment);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public WaitlistResponse declineWaitlistOffer(UUID customerId, UUID entryId) {
-        WaitlistEntry entry = requireWaitlistEntry(customerId, entryId);
-        Place place = places.findLockedById(entry.getPlace().getId()).orElseThrow(() -> notFound("Place not found"));
-        entry = requireWaitlistEntry(customerId, entryId);
-        entityManager.refresh(entry);
+        WaitlistEntry entry = lockedEntry(customerId, entryId);
+        ensureOpen(entry);
         if (entry.getStatus() != WaitlistStatus.OFFERED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "There is no active offer for this entry");
         }
         entry.changeStatus(WaitlistStatus.DECLINED);
-        offerNext(place, entry.getOffering(), entry.getRequestedStartsAt());
+        queue.fillReleasedWindow(entry.getPlace(), entry.getRequestedStartsAt(), entry.getRequestedEndsAt());
         return WaitlistResponse.from(entry);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public void leaveWaitlist(UUID customerId, UUID entryId) {
-        WaitlistEntry entry = requireWaitlistEntry(customerId, entryId);
-        Place place = places.findLockedById(entry.getPlace().getId()).orElseThrow(() -> notFound("Place not found"));
-        entry = requireWaitlistEntry(customerId, entryId);
-        entityManager.refresh(entry);
+        WaitlistEntry entry = lockedEntry(customerId, entryId);
+        ensureOpen(entry);
         boolean hadOffer = entry.getStatus() == WaitlistStatus.OFFERED;
         if (entry.getStatus() != WaitlistStatus.WAITING && !hadOffer) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This waitlist entry is already closed");
         }
         entry.changeStatus(WaitlistStatus.LEFT);
         if (hadOffer) {
-            offerNext(place, entry.getOffering(), entry.getRequestedStartsAt());
+            queue.fillReleasedWindow(entry.getPlace(), entry.getRequestedStartsAt(), entry.getRequestedEndsAt());
         }
     }
 
     @Scheduled(fixedDelay = 30_000)
-    @Transactional
     public void expireOffers() {
-        Instant now = Instant.now(clock);
-        List<WaitlistEntry> expiredOffers = waitlist.findByStatusAndOfferExpiresAtLessThanEqual(
-            WaitlistStatus.OFFERED,
-            now
-        );
-        for (WaitlistEntry candidate : expiredOffers) {
-            Place place = places.findLockedById(candidate.getPlace().getId()).orElse(null);
-            if (place == null) {
-                continue;
-            }
-            WaitlistEntry entry = waitlist.findById(candidate.getId()).orElse(null);
-            if (entry != null) {
-                entityManager.refresh(entry);
-            }
-            if (entry == null || entry.getStatus() != WaitlistStatus.OFFERED
-                || entry.getOfferExpiresAt().isAfter(now)) {
-                continue;
-            }
+        var due = waitlist.dueEntries(clock.instant(), PageRequest.of(0, WaitlistQueue.EXPIRY_BATCH_SIZE));
+        Map<UUID, List<UUID>> byPlace = new LinkedHashMap<>();
+        for (var entry : due) {
+            byPlace.computeIfAbsent(entry.getPlaceId(), ignored -> new ArrayList<>()).add(entry.getEntryId());
+        }
+        byPlace.forEach(queue::expireEntries);
+    }
+
+    private void ensureOpen(WaitlistEntry entry) {
+        if (entry.isDue(clock.instant())) {
+            boolean released = entry.getStatus() == WaitlistStatus.OFFERED;
             entry.changeStatus(WaitlistStatus.EXPIRED);
-            offerNext(place, entry.getOffering(), entry.getRequestedStartsAt());
-        }
-    }
-
-    public void offerNext(Place place, Offering offering, Instant startsAt) {
-        if (!startsAt.isAfter(Instant.now(clock))) {
-            return;
-        }
-        Instant endsAt = startsAt.plusSeconds(offering.getDurationMinutes() * 60L);
-        if (!capacity.hasCapacity(place, startsAt, endsAt)) {
-            return;
-        }
-        List<WaitlistEntry> activeOffers = waitlist
-            .findByPlaceIdAndOfferingIdAndRequestedStartsAtAndStatusOrderByCreatedAtAsc(
-                place.getId(), offering.getId(), startsAt, WaitlistStatus.OFFERED
-            );
-        if (!activeOffers.isEmpty()) {
-            return;
-        }
-        List<WaitlistEntry> waitingEntries = waitlist
-            .findByPlaceIdAndOfferingIdAndRequestedStartsAtAndStatusOrderByCreatedAtAsc(
-                place.getId(), offering.getId(), startsAt, WaitlistStatus.WAITING
-            );
-        if (waitingEntries.isEmpty()) {
-            return;
-        }
-        Instant now = Instant.now(clock);
-        WaitlistEntry nextCustomer = waitingEntries.getFirst();
-        Instant expiresAt = now.plus(WAITLIST_OFFER_LIFETIME);
-        nextCustomer.offer(now, expiresAt);
-        events.publishEvent(new WaitlistOfferEvent(nextCustomer.getCustomer().getId(), nextCustomer.getId(), expiresAt));
-    }
-
-    public void expirePlaceOffers(Place place) {
-        List<WaitlistEntry> expired = waitlist.findByPlaceIdAndStatusAndOfferExpiresAtLessThanEqual(
-            place.getId(), WaitlistStatus.OFFERED, Instant.now(clock)
-        );
-        for (WaitlistEntry entry : expired) {
-            entityManager.refresh(entry);
-            if (entry.getStatus() == WaitlistStatus.OFFERED) {
-                entry.changeStatus(WaitlistStatus.EXPIRED);
-                offerNext(place, entry.getOffering(), entry.getRequestedStartsAt());
+            if (released) {
+                queue.fillReleasedWindow(entry.getPlace(), entry.getRequestedStartsAt(), entry.getRequestedEndsAt());
             }
         }
+        if (entry.getStatus() == WaitlistStatus.EXPIRED) {
+            throw new ResponseStatusException(HttpStatus.GONE, "The waitlist entry has expired");
+        }
     }
 
-    private WaitlistEntry requireWaitlistEntry(UUID customerId, UUID entryId) {
+    private WaitlistEntry lockedEntry(UUID customerId, UUID entryId) {
         WaitlistEntry entry = waitlist.findById(entryId)
             .orElseThrow(() -> notFound("Waitlist entry not found"));
         if (!entry.getCustomer().getId().equals(customerId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This waitlist entry belongs to another customer");
         }
+        places.findLockedById(entry.getPlace().getId()).orElseThrow(() -> notFound("Place not found"));
+        entityManager.refresh(entry);
         return entry;
     }
 

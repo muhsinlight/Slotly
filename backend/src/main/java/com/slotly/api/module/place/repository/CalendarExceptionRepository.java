@@ -12,4 +12,6 @@ public interface CalendarExceptionRepository extends JpaRepository<CalendarExcep
     Optional<CalendarException> findByPlaceIdAndDate(UUID placeId, LocalDate date);
 
     List<CalendarException> findByPlaceIdOrderByDateAsc(UUID placeId);
+
+    List<CalendarException> findByPlaceIdAndDateBetween(UUID placeId, LocalDate from, LocalDate to);
 }

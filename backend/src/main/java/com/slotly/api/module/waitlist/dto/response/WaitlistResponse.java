@@ -1,6 +1,7 @@
 package com.slotly.api.module.waitlist.dto.response;
 
 import com.slotly.api.module.waitlist.entity.WaitlistEntry;
+import com.slotly.api.module.waitlist.entity.WaitlistStatus;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -16,6 +17,14 @@ public record WaitlistResponse(
     Instant offerExpiresAt
 ) {
     public static WaitlistResponse from(WaitlistEntry entry) {
+        return from(entry, entry.getStatus());
+    }
+
+    public static WaitlistResponse at(WaitlistEntry entry, Instant now) {
+        return from(entry, entry.isDue(now) ? WaitlistStatus.EXPIRED : entry.getStatus());
+    }
+
+    private static WaitlistResponse from(WaitlistEntry entry, WaitlistStatus status) {
         return new WaitlistResponse(
             entry.getId(),
             entry.getPlace().getId(),
@@ -24,7 +33,7 @@ public record WaitlistResponse(
             entry.getOffering().getName(),
             entry.getRequestedStartsAt(),
             entry.getRequestedEndsAt(),
-            entry.getStatus().name(),
+            status.name(),
             entry.getOfferExpiresAt()
         );
     }

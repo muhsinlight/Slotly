@@ -1,6 +1,7 @@
 package com.slotly.api;
 
 import com.slotly.api.module.booking.dto.request.AppointmentRequest;
+import com.slotly.api.module.booking.entity.Appointment;
 import com.slotly.api.module.booking.entity.AppointmentStatus;
 import com.slotly.api.module.booking.repository.AppointmentRepository;
 import com.slotly.api.module.booking.service.BookingService;
@@ -8,6 +9,7 @@ import com.slotly.api.module.booking.service.AvailabilityService;
 import com.slotly.api.module.waitlist.service.WaitlistService;
 import com.slotly.api.module.place.service.PlaceService;
 import com.slotly.api.module.place.dto.request.CalendarExceptionRequest;
+import com.slotly.api.module.place.dto.request.OfferingRequest;
 import com.slotly.api.module.place.dto.request.PlaceRequest;
 import com.slotly.api.module.place.entity.BusinessHour;
 import com.slotly.api.module.place.entity.Offering;
@@ -22,6 +24,8 @@ import com.slotly.api.module.user.entity.UserRole;
 import com.slotly.api.module.user.repository.UserRepository;
 import com.slotly.api.module.waitlist.dto.request.WaitlistRequest;
 import com.slotly.api.module.waitlist.dto.response.WaitlistResponse;
+import com.slotly.api.module.waitlist.entity.WaitlistEntry;
+import com.slotly.api.module.waitlist.entity.WaitlistStatus;
 import com.slotly.api.module.waitlist.repository.WaitlistRepository;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -35,8 +39,11 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -67,6 +74,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Import(BookingServiceIntegrationTests.TestClockConfiguration.class)
 class BookingServiceIntegrationTests {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Europe/Istanbul");
+
+    @MockitoBean
+    private TaskScheduler scheduler;
 
     @Autowired
     private BookingService bookingService;
@@ -398,10 +408,140 @@ class BookingServiceIntegrationTests {
         clock.setInstant(waitlist.findById(first).orElseThrow().getOfferExpiresAt());
 
         assertStatus(HttpStatus.CONFLICT, () -> book(customerTwo, service, start));
-        waitlistService.expireOffers();
         assertEquals("EXPIRED", waitlist.findById(first).orElseThrow().getStatus().name());
         assertEquals("OFFERED", waitlist.findById(second).orElseThrow().getStatus().name());
         waitlistService.acceptWaitlistOffer(customerOne.getId(), second);
+    }
+
+    @Test
+    void cancellationAfterConversionToProductUsesTheStoredWindow() {
+        Offering longService = saveService(60);
+        Offering shortService = saveService(30);
+        UUID booked = book(customerOne, longService, at(10, 0));
+        UUID converted = joinWaitlist(customerTwo, longService, at(10, 0)).id();
+        UUID overlapping = joinWaitlist(customerTwo, shortService, at(10, 30)).id();
+        placeService.updateOffering(owner.getId(), place.getId(), longService.getId(),
+            new OfferingRequest("Product", null, BigDecimal.TEN, null, OfferingKind.PRODUCT, true));
+
+        bookingService.cancel(customerOne.getId(), booked);
+
+        assertEquals(AppointmentStatus.CANCELLED, appointments.findById(booked).orElseThrow().getStatus());
+        assertEquals(WaitlistStatus.WAITING, waitlist.findById(converted).orElseThrow().getStatus());
+        assertEquals(WaitlistStatus.OFFERED, waitlist.findById(overlapping).orElseThrow().getStatus());
+    }
+
+    @Test
+    void capacityIncreaseReservesNewSeatsForWaitingCustomers() {
+        Offering service = saveService(30);
+        Instant start = at(10, 0);
+        book(customerOne, service, start);
+        UUID first = joinWaitlist(customerTwo, service, start).id();
+        UUID second = joinWaitlist(owner, service, start).id();
+
+        changeCapacity(2);
+        assertEquals(WaitlistStatus.OFFERED, waitlist.findById(first).orElseThrow().getStatus());
+        assertEquals(WaitlistStatus.WAITING, waitlist.findById(second).orElseThrow().getStatus());
+        changeCapacity(3);
+        assertEquals(WaitlistStatus.OFFERED, waitlist.findById(second).orElseThrow().getStatus());
+    }
+
+    @Test
+    void twoExpiredOffersChooseBetweenOverlappingWaitersInOriginalOrder() {
+        Offering hourly = saveService(60);
+        Offering halfHour = saveService(30);
+        Offering fortyFive = saveService(45);
+        for (int hour : List.of(9, 10)) {
+            var expired = new WaitlistEntry(owner, place, hourly, at(hour, 0), at(hour + 1, 0));
+            expired.offer(clock.instant().minusSeconds(1801), clock.instant().minusSeconds(1));
+            waitlist.save(expired);
+        }
+        var first = waitlist.save(new WaitlistEntry(customerOne, place, halfHour, at(10, 0), at(10, 30)));
+        var second = waitlist.save(new WaitlistEntry(customerTwo, place, fortyFive, at(9, 45), at(10, 30)));
+
+        waitlistService.expireOffers();
+
+        assertEquals(WaitlistStatus.OFFERED, waitlist.findById(first.getId()).orElseThrow().getStatus());
+        assertEquals(WaitlistStatus.WAITING, waitlist.findById(second.getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void offerEndsAtAppointmentStartAndPastWaitingEntriesClose() {
+        Offering service = saveService(30);
+        Instant start = at(10, 0);
+        UUID booked = book(customerOne, service, start);
+        UUID first = joinWaitlist(customerTwo, service, start).id();
+        UUID second = joinWaitlist(owner, service, start).id();
+        clock.setInstant(start.minusSeconds(300));
+        bookingService.cancel(customerOne.getId(), booked);
+        assertEquals(start, waitlist.findById(first).orElseThrow().getOfferExpiresAt());
+
+        clock.setInstant(start);
+        assertEquals("EXPIRED", waitlistService.myWaitlist(owner.getId()).getFirst().status());
+        assertStatus(HttpStatus.GONE, () -> waitlistService.acceptWaitlistOffer(customerTwo.getId(), first));
+        waitlistService.expireOffers();
+        assertEquals(WaitlistStatus.EXPIRED, waitlist.findById(first).orElseThrow().getStatus());
+        assertEquals(WaitlistStatus.EXPIRED, waitlist.findById(second).orElseThrow().getStatus());
+        assertEquals(1, appointmentsForThisPlace());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"place", "offering", "duration", "duplicate"})
+    void staleOfferCannotCreateAnInvalidAppointment(String change) {
+        Offering service = saveService(30);
+        Instant start = at(10, 0);
+        UUID booked = book(customerOne, service, start);
+        UUID entry = joinWaitlist(customerTwo, service, start).id();
+        bookingService.cancel(customerOne.getId(), booked);
+        switch (change) {
+            case "place" -> placeService.deletePlace(owner.getId(), place.getId());
+            case "offering" -> placeService.deleteOffering(owner.getId(), place.getId(), service.getId());
+            case "duration" -> placeService.updateOffering(owner.getId(), place.getId(), service.getId(),
+                new OfferingRequest("Service", null, BigDecimal.TEN, 60, OfferingKind.SERVICE, true));
+            case "duplicate" -> {
+                changeCapacity(2);
+                book(customerTwo, service, start);
+            }
+        }
+
+        assertStatus(HttpStatus.CONFLICT, () -> waitlistService.acceptWaitlistOffer(customerTwo.getId(), entry));
+        assertEquals(WaitlistStatus.EXPIRED, waitlist.findById(entry).orElseThrow().getStatus());
+        assertEquals(change.equals("duplicate") ? 1 : 0, bookingService.myAppointments(customerTwo.getId()).size());
+    }
+
+    @Test
+    void databaseRejectsDuplicateConfirmedRowsButAllowsRebookingAfterCancellation() {
+        Offering service = saveService(30);
+        Instant start = at(10, 0);
+        UUID first = book(customerOne, service, start);
+        assertThrows(DataIntegrityViolationException.class, () -> appointments.saveAndFlush(
+            new Appointment(customerOne, place, service, start, start.plusSeconds(1800))));
+        bookingService.cancel(customerOne.getId(), first);
+        book(customerOne, service, start);
+        assertEquals(2, appointmentsForThisPlace());
+    }
+
+    @Test
+    void publishedStartIsAcceptedAndSubMinuteOffsetsAreRejectedForBothPaths() {
+        Offering service = saveService(30);
+        Instant start = at(9, 0);
+        assertEquals(List.of(start), availabilityService.availability(place.getId(), service.getId(),
+            start, start.plusSeconds(1800)));
+        book(customerOne, service, start);
+        assertStatus(HttpStatus.BAD_REQUEST, () -> book(customerTwo, service, start.plusSeconds(25)));
+        assertStatus(HttpStatus.BAD_REQUEST, () -> joinWaitlist(customerTwo, service, start.plusNanos(1)));
+    }
+
+    @Test
+    void inactivePlaceAndOfferingStartHiddenFromDiscovery() {
+        var hidden = placeService.createPlace(owner.getId(), new PlaceRequest("Hidden", null, "Address", 1, false));
+        assertFalse(hidden.active());
+        assertFalse(placeService.publicPlaces().stream().anyMatch(item -> item.id().equals(hidden.id())));
+        assertStatus(HttpStatus.NOT_FOUND, () -> placeService.publicPlace(hidden.id()));
+        var offering = placeService.createOffering(owner.getId(), place.getId(),
+            new OfferingRequest("Hidden", null, BigDecimal.TEN, 30, OfferingKind.SERVICE, false));
+        assertFalse(offering.active());
+        assertTrue(placeService.publicOfferings(place.getId()).isEmpty());
+        assertEquals(BUSINESS_ZONE.getId(), placeService.publicPlace(place.getId()).timeZone());
     }
 
     @Test
