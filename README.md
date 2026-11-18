@@ -20,7 +20,7 @@ Bir randevu iptal edildiğinde boşalan saat, bekleme listesindeki sıradaki mü
 
 ## Hızlı başlangıç
 
-JDK 25, Node.js 24+, Docker Compose ve Git gerekir. Docker çalışırken depo kökünde:
+JDK 25, Node.js 24+, pnpm 12, Docker Compose ve Git gerekir. Docker çalışırken depo kökünde:
 
 ```sh
 node scripts/dev.mjs
@@ -31,7 +31,7 @@ Komut yerel PostgreSQL’i başlatır, gerektiğinde frontend bağımlılıklar�
 RabbitMQ ile bildirim kuyruğunu denemek için `docker compose --profile messaging up -d --wait rabbitmq`
 komutunu çalıştırın ve API'yi `RABBITMQ_ENABLED=true` ortam değişkeniyle başlatın.
 RabbitMQ yönetim ekranı `http://localhost:15672` adresindedir (yerel kullanıcı/şifre: `slotly`).
-E-posta sağlayıcısı bağlı değilken kuyruk iş taşır, gerçek e-posta göndermez.
+E-posta sağlayıcısı bağlı değilken e-posta işleri veritabanında bekler; yayınlama ve gönderim başlamaz.
 
 - Web: http://localhost:5173
 - API: http://localhost:8080

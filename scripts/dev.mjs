@@ -248,7 +248,7 @@ async function main() {
 
   if (!existsSync(path.join(frontendDirectory, 'node_modules'))) {
     console.log('[dev] Installing frontend dependencies...')
-    runCommand(isWindows ? 'npm.cmd' : 'npm', ['ci'], { cwd: frontendDirectory })
+    runCommand(isWindows ? 'pnpm.cmd' : 'pnpm', ['install', '--frozen-lockfile'], { cwd: frontendDirectory })
   }
 
   const backendReady = await isHttpReady(apiUrl)
@@ -278,7 +278,7 @@ async function main() {
   if (!frontendReady) {
     launch(
       'frontend',
-      isWindows ? 'npm.cmd' : 'npm',
+      isWindows ? 'pnpm.cmd' : 'pnpm',
       ['run', 'dev', '--', '--host', '127.0.0.1'],
       frontendDirectory,
       process.env,

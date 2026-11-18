@@ -20,7 +20,7 @@ Windows'ta GitHub'a göndermeden önce CI kontrollerinin tamamını proje kökü
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check.ps1
 ```
 
-Komut backend `verify`, yedek geri yükleme, `npm ci`, frontend tür kontrolü/derleme ve Chromium tarayıcı testlerini sırayla çalıştırır; ilk hatada durur. Test veritabanları geçicidir. Chromium ilk kullanımda indirilir.
+Komut backend `verify`, yedek geri yükleme, `pnpm install --frozen-lockfile`, frontend tür kontrolü/derleme ve Chromium tarayıcı testlerini sırayla çalıştırır; ilk hatada durur. Test veritabanları geçicidir. Chromium ilk kullanımda indirilir.
 
 `scripts/check.ps1` yerel bir dosyadır; `.gitignore` kapsamındadır ve GitHub'a gönderilmez. Yeni bir klonda kullanmak için önce dosyayı `scripts/` klasörüne ayrıca kopyalayın. Her `git push` öncesinde otomatik çalışması için her yeni klonda bir kez kurun:
 
@@ -45,15 +45,15 @@ Frontend TypeScript kontrolü ve üretim derlemesi:
 
 ```powershell
 cd frontend
-npm run build
+pnpm run build
 ```
 
 Mobil müşteri akışının tarayıcı testi (gerçek API, ayrı ve geçici PostgreSQL):
 
 ```powershell
 cd frontend
-npm ci
-npx playwright install chromium
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
 cd ..
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-browser.ps1
 ```
