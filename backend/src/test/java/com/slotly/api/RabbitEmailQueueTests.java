@@ -41,7 +41,6 @@ class RabbitEmailQueueTests {
         verify(rabbit).convertAndSend("slotly.email.ready", messageId.toString());
         verify(dispatcher).deliver(messageId);
     }
-
     @Test
     void bothTransportsRequireAnEnabledProvider() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);

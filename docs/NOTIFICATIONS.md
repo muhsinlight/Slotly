@@ -11,3 +11,5 @@ Zamanlayıcı ve RabbitMQ tüketicisi aynı gönderim iznini ve sağlayıcı kon
 Hesap bağlantılarının temizliği, gönderim kapalıyken de dakikada bir çalışır. Süresi dolan veya tüketilen bağlantıların bekleyen mesajları `CANCELLED` durumuna alınır ve gövdeleri temizlenir. Önceki sürümden kalan kapalı mesajlar da temizliğe dahildir. Her geçiş en çok 500 mesaj işler. Mesaj kimliği, konu, durum ve deneme sayısı geçmişte kalır.
 
 Gerçek dış gönderim kapalıdır (`slotly.email.enabled=false`). Sağlayıcı seçilmediği için üretim `EmailGateway` adaptörü yoktur. Yetkilendirilen adaptör mesaj UUID'sini sağlayıcının idempotency anahtarı olarak kullanmalıdır. Sağlayıcı bunu desteklemiyorsa gönderimden sonra DB commit'i öncesi çökme durumunda tekrar teslim riski vardır; bu sınır sağlayıcı seçiminde çözülmelidir. Testler yalnız sahte, yerel gateway kullanır.
+
+Randevu hatırlatmaları `REMINDER` türünde aynı outbox ve gönderim işçisini kullanır. Tercih edilen 2/24 saat aralığında kuyruğa alınır; randevu iptali/saat değişikliği ve güncel adres/tercih gönderim anında yeniden doğrulanır. Ayrıntı: [REMINDERS](REMINDERS.md).
