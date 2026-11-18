@@ -101,3 +101,8 @@ $RECYCLE.BIN/
 *.hprof
 hs_err_pid*
 replay_pid*
+
+# Local verification logs in the repository root
+/temp-push.log
+/temp-final-verify.log
+/temp-build.log
