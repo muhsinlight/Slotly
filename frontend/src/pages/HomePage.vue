@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
-import { token } from '../composables/auth'
 import { listPlaces, type Place } from '../lib/bookings'
 
 const places = ref<Place[]>([])
@@ -30,7 +29,7 @@ onMounted(loadPlaces)
 </script>
 
 <template>
-  <div class="app-shell">
+  <div id="top" class="app-shell">
     <AppHeader />
     <main>
       <section class="hero">
@@ -48,10 +47,6 @@ onMounted(loadPlaces)
           <div class="hero-preview-days"><span>PZT</span><span>SAL</span><span class="active">ÇAR</span><span>PER</span><span>CUM</span></div>
         </div>
       </section>
-      <section v-if="!token" class="account section">
-        <div><span class="eyebrow">SLOTLY'YE KATIL</span><h2>Randevularını tek yerden yönet.</h2><p>Slotly hesabınla sana uygun zamanı bul ve planlarını kolayca takip et.</p></div>
-        <div class="account-actions"><RouterLink to="/register" class="button primary">Hesap oluştur</RouterLink></div>
-      </section>
       <section id="places" class="section">
         <div class="section-heading"><div><span class="eyebrow">KEŞFET</span><h2>Sana uygun yeri bul</h2></div><p>İşletmelerin hizmetlerini incele, uygun zamanı seç.</p></div>
         <label class="place-search"><span>Mekân ara</span><input v-model="search" type="search" placeholder="Mekân adı veya adres" autocomplete="off"></label>
@@ -67,6 +62,21 @@ onMounted(loadPlaces)
         </div>
       </section>
     </main>
-    <footer><RouterLink class="brand" to="/"><span class="brand-mark">S</span>slotly</RouterLink><span>Randevular için iyi bir yer.</span><small>© Slotly</small></footer>
+    <footer class="site-footer">
+      <div class="site-footer-main">
+        <div>
+          <RouterLink class="brand" to="/" aria-label="Slotly ana sayfa">
+            <span class="brand-mark">S</span>
+            slotly
+          </RouterLink>
+          <p>Yakınındaki işletmeleri keşfet, randevunu kolayca planla.</p>
+        </div>
+        <nav aria-label="Alt menü">
+          <a href="#places">Mekânlar <span aria-hidden="true">↗</span></a>
+          <a href="#top">Yukarı çık <span aria-hidden="true">↑</span></a>
+        </nav>
+      </div>
+      <small>© {{ new Date().getFullYear() }} Slotly</small>
+    </footer>
   </div>
 </template>
