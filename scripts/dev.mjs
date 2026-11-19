@@ -91,9 +91,9 @@ function resolveMavenCommand() {
   return path.join(backendDirectory, isWindows ? 'mvnw.cmd' : 'mvnw')
 }
 
-function isPortOpen(port) {
+function isPortOpen(port, host = '127.0.0.1') {
   return new Promise((resolve) => {
-    const socket = net.createConnection({ host: '127.0.0.1', port })
+    const socket = net.createConnection({ host, port })
     socket.setTimeout(500)
     socket.once('connect', () => {
       socket.destroy()
@@ -193,32 +193,38 @@ function shutdown(exitCode = 0) {
   process.exitCode = exitCode
 }
 
-async function waitForPostgres() {
-  const deadline = Date.now() + 60_000
+function databaseEndpoint() {
+  const jdbcUrl = process.env.DATABASE_URL || 'jdbc:postgresql://localhost:5432/slotly'
+  let url
+
+  try {
+    if (!jdbcUrl.startsWith('jdbc:postgresql://')) {
+      throw new Error('Invalid JDBC URL')
+    }
+    url = new URL(jdbcUrl.slice('jdbc:'.length))
+  } catch {
+    throw new Error('DATABASE_URL must be a PostgreSQL JDBC URL, such as jdbc:postgresql://localhost:5432/slotly.')
+  }
+
+  if (url.protocol !== 'postgresql:' || !url.hostname || url.pathname.length < 2) {
+    throw new Error('DATABASE_URL must be a PostgreSQL JDBC URL, such as jdbc:postgresql://localhost:5432/slotly.')
+  }
+
+  return { host: url.hostname, port: Number(url.port || 5432) }
+}
+
+async function waitForPostgres(host, port) {
+  const deadline = Date.now() + 10_000
 
   while (Date.now() < deadline) {
-    const ready = await new Promise((resolve) => {
-      const socket = net.createConnection({ host: '127.0.0.1', port: 5432 })
-      socket.setTimeout(500)
-      socket.once('connect', () => {
-        socket.destroy()
-        resolve(true)
-      })
-      socket.once('timeout', () => {
-        socket.destroy()
-        resolve(false)
-      })
-      socket.once('error', () => resolve(false))
-    })
-
-    if (ready) {
+    if (await isPortOpen(port, host) || (host === 'localhost' && await isPortOpen(port, '127.0.0.1'))) {
       return
     }
 
     await delay(1000)
   }
 
-  throw new Error('PostgreSQL did not open port 5432 within 60 seconds.')
+  throw new Error(`PostgreSQL is unavailable at ${host}:${port}. Start the local server and check DATABASE_URL.`)
 }
 
 async function waitForApplications() {
@@ -241,10 +247,9 @@ async function waitForApplications() {
 }
 
 async function main() {
-  const dockerCommand = isWindows ? 'docker.exe' : 'docker'
-  console.log('[dev] Starting the PostgreSQL container...')
-  runCommand(dockerCommand, ['compose', 'up', '-d', 'postgres'])
-  await waitForPostgres()
+  const { host, port } = databaseEndpoint()
+  console.log(`[dev] Waiting for PostgreSQL at ${host}:${port}...`)
+  await waitForPostgres(host, port)
 
   if (!existsSync(path.join(frontendDirectory, 'node_modules'))) {
     console.log('[dev] Installing frontend dependencies...')
@@ -292,7 +297,7 @@ async function main() {
   console.log('[dev] Login:    http://127.0.0.1:5173/login')
   console.log('[dev] Register: http://127.0.0.1:5173/register')
   console.log(`[dev] API:      ${apiUrl}`)
-  console.log('[dev] Press Ctrl+C to stop the backend and frontend. PostgreSQL stays running.')
+  console.log('[dev] Press Ctrl+C to stop the backend and frontend. Local PostgreSQL stays running.')
 }
 
 process.on('SIGINT', () => {

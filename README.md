@@ -20,15 +20,15 @@ Bir randevu iptal edildiğinde boşalan saat, bekleme listesindeki sıradaki mü
 
 ## Hızlı başlangıç
 
-JDK 25, Node.js 24+, pnpm 12, Docker Compose ve Git gerekir. Docker çalışırken depo kökünde:
+JDK 25, Node.js 24+, pnpm 12, PostgreSQL 17 ve Git gerekir. Önce yerel PostgreSQL'de `slotly` veritabanını ve erişim kullanıcısını hazırlayın. Farklı bağlantı bilgileri için `DATABASE_URL`, `DATABASE_USERNAME` ve `DATABASE_PASSWORD` ortam değişkenlerini ayarlayın. Ardından depo kökünde:
 
 ```sh
 node scripts/dev.mjs
 ```
 
-Komut yerel PostgreSQL’i başlatır, gerektiğinde frontend bağımlılıklarını kurar ve API ile web arayüzünü çalıştırır.
+Komut çalışan PostgreSQL bağlantı noktasını kontrol eder, gerektiğinde frontend bağımlılıklarını kurar ve API ile web arayüzünü çalıştırır. PostgreSQL'i veya Docker'ı başlatmaz.
 
-RabbitMQ ile bildirim kuyruğunu denemek için `docker compose --profile messaging up -d --wait rabbitmq`
+RabbitMQ varsayılan olarak kapalıdır; normal geliştirme başlangıcında Docker gerekmez. RabbitMQ ile bildirim kuyruğunu denemek için `docker compose --profile messaging up -d --wait rabbitmq`
 komutunu çalıştırın ve API'yi `RABBITMQ_ENABLED=true` ortam değişkeniyle başlatın.
 RabbitMQ yönetim ekranı `http://localhost:15672` adresindedir (yerel kullanıcı/şifre: `slotly`).
 E-posta sağlayıcısı bağlı değilken e-posta işleri veritabanında bekler; yayınlama ve gönderim başlamaz.
@@ -41,7 +41,7 @@ Arayüzden işletme sahibi hesabı oluşturun; mekân, çalışma saatleri ve hi
 
 İlk yönetici hesabını oluşturmak için API'yi başlatmadan önce `SLOTLY_ADMIN_USERNAME` ve en az 12 karakterli `SLOTLY_ADMIN_PASSWORD` ortam değişkenlerini ayarlayın. Uygulama hesabı yalnızca yoksa oluşturur; sonraki açılışlarda parolayı değiştirmez. Bu hesapla giriş yaptıktan sonra `/admin` paneli tüm işletmelerin randevu ve bekleme kayıtlarını gösterir. Açık kayıt formu yönetici rolünü kabul etmez.
 
-`Ctrl+C` uygulamaları durdurur. PostgreSQL’i durdurmak için `docker compose down` çalıştırın; kayıtlı veriler korunur.
+`Ctrl+C` API ve arayüzü durdurur; yerel PostgreSQL kendi servisinde çalışmaya devam eder.
 
 ## Dokümantasyon
 
@@ -66,6 +66,6 @@ scripts/       Geliştirme, test ve Git kancası araçları
 .github/       CI iş akışları
 ```
 
-`compose.yaml` yerel geliştirme veritabanını tanımlar. `docker/compose.demo.yaml`, `docker/compose.integration-test.yaml` ve `docker/compose.browser-test.yaml` demo ve test ortamlarını ayrı veritabanlarında çalıştırır. Bu dosyalar tekrar kurulabilir geliştirme ortamının parçasıdır.
+`compose.yaml` isteğe bağlı konteyner veritabanını ve RabbitMQ'yu tanımlar. `docker/compose.demo.yaml`, `docker/compose.integration-test.yaml` ve `docker/compose.browser-test.yaml` demo ve test ortamlarını ayrı veritabanlarında çalıştırır.
 
 `common` ve `module` aynı uygulamanın Java paketleridir; ayrı Maven projeleri değildir. Her alan kendi controller, DTO, entity, repository ve service katmanlarını içerir. Paket düzeni [aviation-platform örneğini](https://github.com/Mervearslan1/aviation-platform/tree/main/src/main/java/com/aviation/platform) izler; Slotly’nin mevcut sürümleri ve alan davranışları korunur.

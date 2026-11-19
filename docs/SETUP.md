@@ -13,16 +13,24 @@ git clone https://github.com/muhsinlight/Slotly.git
 cd Slotly
 ```
 
-### 2. PostgreSQL'i başlatın
+### 2. Yerel PostgreSQL'i hazırlayın
 
-Proje kökünden:
+PostgreSQL 17'nin yerel servisinin çalıştığından ve `localhost:5432` adresini dinlediğinden emin olun. `slotly` veritabanı ve bu veritabanına erişebilen bir kullanıcı gerekir. Bunlar henüz yoksa PostgreSQL yönetici hesabıyla `psql` içinde oluşturun:
 
-```powershell
-docker compose up -d postgres
-docker compose ps
+```sql
+CREATE ROLE slotly LOGIN PASSWORD 'seçtiğiniz-yerel-parola';
+CREATE DATABASE slotly OWNER slotly;
 ```
 
-Compose yerel geliştirme için `slotly` veritabanını, `slotly` kullanıcısını ve parolasını oluşturur; PostgreSQL 17'yi `localhost:5432` adresinde sunar. Veriler `slotly-postgres-data` adlı kalıcı volume'da tutulur. Compose yalnızca veritabanını başlatır; API ve arayüz ayrı süreçlerdir.
+Kendi kullanıcı/parolanızı veya farklı veritabanı adını kullanıyorsanız API'yi başlatacağınız terminalde `DATABASE_URL`, `DATABASE_USERNAME` ve `DATABASE_PASSWORD` ortam değişkenlerini ayarlayın. Örneğin PowerShell'de:
+
+```powershell
+$env:DATABASE_URL = 'jdbc:postgresql://localhost:5432/slotly'
+$env:DATABASE_USERNAME = 'slotly'
+$env:DATABASE_PASSWORD = '<yerel-parolanız>'
+```
+
+API şemayı ilk bağlantıda Flyway ile kurar. Docker'daki eski `slotly` veritabanı ayrı kalır; içerikleri yerel PostgreSQL'e kendiliğinden taşınmaz.
 
 ### 3. API'yi başlatın
 
@@ -56,13 +64,13 @@ Vite `http://localhost:5173` adresinde açılır. Tarayıcıda bu adresi ziyaret
 
 Farklı API ortamları için `frontend/.env.example` örneğindeki `VITE_API_BASE_URL` değerini derlemeden önce ayarlayın. Bu değer API origin'idir; `/api` uygulama tarafından eklenir. Vite değişkenleri derlemeye gömülür, sır içermemelidir.
 
-PostgreSQL, API ve arayüzü tek komutla başlatmak için proje kökünde çalıştırın:
+Çalışan yerel PostgreSQL'e bağlanarak API ve arayüzü tek komutla başlatmak için proje kökünde çalıştırın:
 
 ```powershell
 node .\scripts\dev.mjs
 ```
 
-Komut PostgreSQL'i Compose ile başlatır, backend ve frontend süreçlerini aynı terminalde ayrı etiketli çıktılarla çalıştırır. Durdurmak için `Ctrl+C` kullanın; betiğin başlattığı uygulamalar durur, PostgreSQL çalışmaya devam eder. Servisler zaten açıksa yeni kopya başlatılmaz.
+Komut Docker'ı başlatmaz; PostgreSQL bağlantı noktasını kontrol edip backend ve frontend süreçlerini aynı terminalde ayrı etiketli çıktılarla çalıştırır. Durdurmak için `Ctrl+C` kullanın; betiğin başlattığı uygulamalar durur, PostgreSQL çalışmaya devam eder. Servisler zaten açıksa yeni kopya başlatılmaz.
 
 ### 5. İlk hesabı ve mekânı kurun
 
@@ -103,7 +111,7 @@ Backend aşağıdaki değerleri süreç ortam değişkenlerinden okur. Varsayıl
 | `SERVER_PORT` | `8080` | API portu |
 | `DATABASE_URL` | `jdbc:postgresql://localhost:5432/slotly` | PostgreSQL JDBC adresi |
 | `DATABASE_USERNAME` | `slotly` | Veritabanı kullanıcısı |
-| `DATABASE_PASSWORD` | `slotly` | Yerel Compose parolası. Değiştirirseniz `compose.yaml` içindeki PostgreSQL parolasıyla eşleştirin. |
+| `DATABASE_PASSWORD` | `slotly` | Yerel geliştirme varsayılanı; kurduğunuz PostgreSQL kullanıcısının parolasıyla eşleştirin. |
 | `JWT_SECRET` | Yerel geliştirme anahtarı | JWT imzalama anahtarı. Yerel varsayılanı canlı ortamda kullanmayın; dış ortamda gizli, güçlü ve en az 32 baytlık bir anahtar sağlayın. |
 | `BUSINESS_TIME_ZONE` | `Europe/Istanbul` | Çalışma saatlerinin yorumlandığı saat dilimi |
 | `CORS_ALLOWED_ORIGINS` | Yerel Vite adresleri | Virgülle ayrılmış izinli arayüz origin'leri; canlı profilde açıkça ayarlanmalıdır. |
