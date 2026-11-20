@@ -64,16 +64,16 @@ onMounted(loadPlaces)
     </main>
     <footer class="site-footer">
       <div class="site-footer-main">
-        <div>
+        <div class="site-footer-identity">
           <RouterLink class="brand" to="/" aria-label="Slotly ana sayfa">
             <span class="brand-mark">S</span>
             slotly
           </RouterLink>
-          <p>Yakınındaki işletmeleri keşfet, randevunu kolayca planla.</p>
+          <p>Yakınındaki mekânları keşfet, sana uygun zamanı seç.</p>
         </div>
         <nav aria-label="Alt menü">
-          <a href="#places">Mekânlar <span aria-hidden="true">↗</span></a>
-          <a href="#top">Yukarı çık <span aria-hidden="true">↑</span></a>
+          <a href="#places">Mekânları keşfet <span aria-hidden="true">↗</span></a>
+          <a href="#top">Başa dön <span aria-hidden="true">↑</span></a>
         </nav>
       </div>
       <small>© {{ new Date().getFullYear() }} Slotly</small>
