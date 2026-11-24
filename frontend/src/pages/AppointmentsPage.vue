@@ -2,12 +2,22 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
-import { appointmentStatusLabels, listAppointments, cancelAppointment as cancelRequest, type Appointment } from '../lib/bookings'
+import { appointmentStatusLabels, getPlace, listAppointments, listSlots, rescheduleAppointment, cancelAppointment as cancelRequest, type Appointment } from '../lib/bookings'
+import { businessDate, timeFormatter } from '../lib/businessTime'
+import { ApiError } from '../lib/api'
 
 const appointments = ref<Appointment[]>([])
 const loading = ref(true)
 const error = ref('')
 const busyId = ref('')
+const editingId = ref('')
+const selectedDate = ref('')
+const firstDate = ref('')
+const placeTimeZone = ref('Europe/Istanbul')
+const availableSlots = ref<string[]>([])
+const selectedSlot = ref('')
+const editError = ref('')
+const loadingSlots = ref(false)
 const filter = ref<'upcoming' | 'past' | 'cancelled'>('upcoming')
 const now = Date.now()
 const visibleAppointments = computed(() => appointments.value.filter((item) => {
@@ -48,6 +58,59 @@ async function cancelAppointment(appointment: Appointment): Promise<void> {
   }
 }
 
+async function startReschedule(appointment: Appointment): Promise<void> {
+  if (busyId.value) return
+  editingId.value = appointment.id
+  availableSlots.value = []
+  selectedSlot.value = ''
+  editError.value = ''
+  try {
+    const place = await getPlace(appointment.placeId)
+    placeTimeZone.value = place.timeZone
+    selectedDate.value = businessDate(place.timeZone)
+    firstDate.value = selectedDate.value
+    await loadRescheduleSlots(appointment)
+  } catch (cause) {
+    editError.value = (cause as Error).message
+  }
+}
+
+async function loadRescheduleSlots(appointment: Appointment): Promise<void> {
+  loadingSlots.value = true
+  editError.value = ''
+  availableSlots.value = []
+  selectedSlot.value = ''
+  try {
+    if (selectedDate.value < firstDate.value) {
+      editError.value = 'Gelecekteki bir tarih seç.'
+      return
+    }
+    const place = await getPlace(appointment.placeId)
+    availableSlots.value = await listSlots(place, appointment.offeringId, selectedDate.value)
+  } catch (cause) {
+    editError.value = (cause as Error).message
+  } finally {
+    loadingSlots.value = false
+  }
+}
+
+async function confirmReschedule(appointment: Appointment): Promise<void> {
+  if (busyId.value || !selectedSlot.value) return
+  busyId.value = appointment.id
+  editError.value = ''
+  try {
+    await rescheduleAppointment(appointment.id, selectedSlot.value)
+    editingId.value = ''
+    await loadAppointments()
+  } catch (cause) {
+    await loadRescheduleSlots(appointment)
+    editError.value = cause instanceof ApiError && cause.status === 409
+      ? 'Bu saat artık uygun değil. Yeni bir saat seç.' : (cause as Error).message
+  } finally {
+    busyId.value = ''
+  }
+}
+
 onMounted(loadAppointments)
 </script>
 
@@ -80,6 +143,21 @@ onMounted(loadAppointments)
           <button v-if="filter === 'upcoming'" class="text-button cancel" :disabled="busyId === item.id" @click="cancelAppointment(item)">
             {{ busyId === item.id ? 'İptal ediliyor…' : 'İptal et' }}
           </button>
+          <button v-if="filter === 'upcoming'" class="text-button" :disabled="!!busyId" @click="startReschedule(item)">Saat değiştir</button>
+          <div v-if="editingId === item.id" class="reschedule-form">
+            <label>Yeni tarih <input v-model="selectedDate" type="date" :min="firstDate" @change="loadRescheduleSlots(item)" /></label>
+            <p v-if="loadingSlots" role="status">Saatler yükleniyor…</p>
+            <label v-else>Yeni saat
+              <select v-model="selectedSlot" :disabled="!availableSlots.length">
+                <option value="">Saat seç</option>
+                <option v-for="slot in availableSlots" :key="slot" :value="slot">{{ timeFormatter(slot, placeTimeZone).format(new Date(slot)) }}</option>
+              </select>
+            </label>
+            <p v-if="!loadingSlots && !availableSlots.length">Bu tarihte uygun saat yok.</p>
+            <p v-if="editError" role="alert">{{ editError }}</p>
+            <button type="button" :disabled="!selectedSlot || !!busyId" @click="confirmReschedule(item)">Yeni saati onayla</button>
+            <button type="button" class="text-button" @click="editingId = ''">Vazgeç</button>
+          </div>
         </article>
       </div>
       <div v-else class="booking-empty">

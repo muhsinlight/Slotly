@@ -6,7 +6,7 @@ Bir randevu iptal edildiğinde boşalan saat, bekleme listesindeki sıradaki mü
 
 ## Özellikler
 
-- Mekân ve hizmet keşfi, uygun saat seçimi ve randevu iptali.
+- Mekân ve hizmet keşfi, uygun saat seçimi, randevu saatini değiştirme ve iptal.
 - İlk gelenin önce teklif aldığı bekleme listesi ve anlık teklif bildirimleri.
 - İşletmeler için hizmet/ürün, çalışma saati ve günlük/haftalık randevu yönetimi.
 - Yöneticiler için tüm işletmelerin randevu ve bekleme kayıtlarını gösteren salt okunur panel.

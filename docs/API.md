@@ -93,6 +93,7 @@ Aşağıdaki uçlar yalnızca ilgili mekânın sahibi olan `OWNER` rolüyle kull
 |---|---|---|
 | `POST /api/appointments` | `CUSTOMER` | `placeId`, `offeringId` ve gelecekteki `startsAt` ile randevu oluşturur. Bitiş hizmet süresinden hesaplanır. |
 | `GET /api/appointments/me` | `CUSTOMER` | Müşterinin kendi randevularını listeler. |
+| `PATCH /api/appointments/{id}/reschedule` | Randevu sahibi `CUSTOMER` | `{"startsAt":"2026-12-01T09:00:00Z"}` ile yaklaşan onaylı randevunun saatini aynı kimlikle değiştirir. Yeni saat doluysa eski randevu korunur; boşalan eski saat FIFO bekleme teklifine açılır. |
 | `DELETE /api/appointments/{id}` | Randevu sahibi veya mekân sahibi | Randevuyu iptal eder; iptal edilmiş randevu kapasiteyi tüketmez. |
 | `GET /api/waitlist/me` | `CUSTOMER` | Müşterinin bekleme kayıtlarını ve tekliflerini listeler. |
 | `GET /api/waitlist/events` | `CUSTOMER` | `text/event-stream` üzerinden yeni teklifleri iletir. Akış kesilirse istemci yeniden bağlanır ve yedek olarak kayıtları yeniler. |

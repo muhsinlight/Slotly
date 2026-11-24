@@ -25,6 +25,7 @@ export type Appointment = {
   id: string
   placeId: string
   placeName: string
+  offeringId: string
   offeringName: string
   startsAt: string
   endsAt: string
@@ -38,6 +39,9 @@ export const getPlace = (id: string) => request<Place>(`/places/${id}`)
 export const listOfferings = (id: string) => request<Offering[]>(`/places/${id}/offerings`)
 export const listAppointments = () => request<Appointment[]>('/appointments/me')
 export const cancelAppointment = (id: string) => request<void>(`/appointments/${id}`, { method: 'DELETE' })
+export const rescheduleAppointment = (id: string, startsAt: string) => request<Appointment>(`/appointments/${id}/reschedule`, {
+  method: 'PATCH', body: JSON.stringify({ startsAt }),
+})
 export const createAppointment = (selection: BookingSelection) => request<Appointment>('/appointments', {
   method: 'POST', body: JSON.stringify(selection),
 })

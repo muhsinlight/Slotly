@@ -57,6 +57,28 @@ test('a competing booking shows a useful error and the customer can join and acc
   expect((await response.json()).data).toHaveLength(1)
 })
 
+test('customer changes an upcoming appointment without losing its identity', async ({ page, request }) => {
+  const data = await fixture(request)
+  const appointment = await post(request, '/appointments', {
+    placeId: data.place.id, offeringId: data.offering.id, startsAt: data.startsAt,
+  }, data.customer.token)
+
+  await page.goto('/login?returnTo=' + encodeURIComponent('/appointments'))
+  await login(page, data.customer.username)
+  await page.getByRole('button', { name: 'Saat değiştir' }).click()
+  await page.getByLabel('Yeni tarih').fill(data.date)
+  await page.getByRole('combobox', { name: 'Yeni saat' }).selectOption(data.date + 'T09:30:00Z')
+  await page.getByRole('button', { name: 'Yeni saati onayla' }).click()
+  await expect(page.getByRole('combobox', { name: 'Yeni saat' })).toHaveCount(0)
+
+  const response = await request.get(api + '/appointments/me', {
+    headers: { Authorization: 'Bearer ' + data.customer.token },
+  })
+  const appointments = (await response.json()).data
+  expect(appointments).toHaveLength(1)
+  expect(appointments[0]).toMatchObject({ id: appointment.id, startsAt: data.date + 'T09:30:00Z' })
+})
+
 test('API 401 clears the session and preserves the booking choice', async ({ page, request }) => {
   const data = await fixture(request)
   await page.goto('/login?returnTo=' + encodeURIComponent('/places/' + data.place.id + '?date=' + data.date))
