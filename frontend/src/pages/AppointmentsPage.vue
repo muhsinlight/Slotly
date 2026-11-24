@@ -64,6 +64,7 @@ async function startReschedule(appointment: Appointment): Promise<void> {
   availableSlots.value = []
   selectedSlot.value = ''
   editError.value = ''
+  loadingSlots.value = true
   try {
     const place = await getPlace(appointment.placeId)
     placeTimeZone.value = place.timeZone
@@ -72,6 +73,7 @@ async function startReschedule(appointment: Appointment): Promise<void> {
     await loadRescheduleSlots(appointment)
   } catch (cause) {
     editError.value = (cause as Error).message
+    loadingSlots.value = false
   }
 }
 
@@ -145,7 +147,7 @@ onMounted(loadAppointments)
           </button>
           <button v-if="filter === 'upcoming'" class="text-button" :disabled="!!busyId" @click="startReschedule(item)">Saat değiştir</button>
           <div v-if="editingId === item.id" class="reschedule-form">
-            <label>Yeni tarih <input v-model="selectedDate" type="date" :min="firstDate" @change="loadRescheduleSlots(item)" /></label>
+            <label>Yeni tarih <input v-model="selectedDate" type="date" :min="firstDate" :disabled="loadingSlots" @change="loadRescheduleSlots(item)" /></label>
             <p v-if="loadingSlots" role="status">Saatler yükleniyor…</p>
             <label v-else>Yeni saat
               <select v-model="selectedSlot" :disabled="!availableSlots.length">
