@@ -19,7 +19,7 @@ RUN (command -v curl >/dev/null 2>&1 || (apt-get update && apt-get install -y --
     && mkdir -p /app/logs \
     && chown -R slotly:slotly /app
 
-COPY --from=build --chown=slotly:slotly /workspace/target/*.jar /app/app.jar
+COPY --from=build --chown=slotly:slotly /workspace/target/slotly-api-*.jar /app/app.jar
 
 USER slotly
 EXPOSE 8080

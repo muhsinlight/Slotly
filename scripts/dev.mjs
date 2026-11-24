@@ -37,10 +37,10 @@ function readLocalProperties() {
       if (separator > 0) {
         const key = line.slice(0, separator).trim()
         const rawValue = line.slice(separator + 1).trim()
-        const placeholder = rawValue.match(/^\$\{([^:}]+)(?::(.*))?\}$/)
-        values[key] = placeholder
-          ? (process.env[placeholder[1]] ?? placeholder[2] ?? '')
-          : rawValue
+        values[key] = rawValue.replace(
+          /\$\{([^:}]+)(?::([^}]*))?\}/g,
+          (_, name, fallback = '') => process.env[name] ?? fallback,
+        )
       }
     }
   }
@@ -311,15 +311,20 @@ async function main() {
   if (!backendReady) {
     const mavenCommand = resolveMavenCommand()
     const mavenOptions = process.env.MAVEN_OPTS || ''
+    const jdkOptions = process.env.JDK_JAVA_OPTIONS || ''
     const userHome = process.env.USERPROFILE || process.env.HOME
+    const hasUserHome = /(^|\s)-Duser\.home=/.test(mavenOptions) || /(^|\s)-Duser\.home=/.test(jdkOptions)
     const mavenArgs = []
-    if (userHome && !/(^|\s)-Duser\.home=/.test(mavenOptions)) {
+    if (userHome && !hasUserHome) {
       mavenArgs.push(`-Duser.home=${userHome}`)
     }
     mavenArgs.push('spring-boot:run')
     const env = {
       ...process.env,
       SPRING_PROFILES_ACTIVE: process.env.SPRING_PROFILES_ACTIVE || 'local',
+      ...(userHome && !hasUserHome
+        ? { JDK_JAVA_OPTIONS: `${jdkOptions} -Duser.home="${userHome.replaceAll('"', '\\"')}"`.trim() }
+        : {}),
     }
     launch('backend', mavenCommand, mavenArgs, backendDirectory, env)
   } else {

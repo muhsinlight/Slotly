@@ -21,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Date;
 
@@ -32,16 +33,19 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final SecretKey jwtSigningKey;
     private final String dummyPasswordHash;
+    private final Clock clock;
 
     public AuthServiceImpl(
         UserRepository userRepository,
         PasswordEncoder passwordEncoder,
-        @Value("${slotly.jwt.secret}") String jwtSecret
+        @Value("${slotly.jwt.secret}") String jwtSecret,
+        Clock clock
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtSigningKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         this.dummyPasswordHash = passwordEncoder.encode("slotly-login-timing-guard");
+        this.clock = clock;
     }
 
     @Transactional
@@ -86,7 +90,7 @@ public class AuthServiceImpl implements AuthService {
             throw invalidCredentials();
         }
 
-        Instant issuedAt = Instant.now();
+        Instant issuedAt = clock.instant();
         String accessToken = Jwts.builder()
             .subject(user.getId().toString())
             .claim("role", user.getRole().name())

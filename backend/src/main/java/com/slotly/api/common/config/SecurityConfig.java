@@ -72,6 +72,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/waitlist/**").hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.POST, "/api/appointments").hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.GET, "/api/appointments/me").hasRole("CUSTOMER")
+                .requestMatchers(HttpMethod.PATCH, "/api/appointments/*/reschedule").hasRole("CUSTOMER")
                 .requestMatchers("/api/appointments/**").hasAnyRole("OWNER", "CUSTOMER")
                 .anyRequest().authenticated())
             .exceptionHandling(errors -> errors

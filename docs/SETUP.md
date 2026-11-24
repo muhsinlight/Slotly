@@ -118,6 +118,13 @@ Backend aşağıdaki değerleri süreç ortam değişkenlerinden okur. Varsayıl
 | `FRONTEND_URL` | `http://localhost:5173` | E-posta doğrulama, parola kurtarma ve bildirim bağlantılarında kullanılan arayüz adresi; canlı profilde açıkça ayarlanmalıdır. |
 | `LOGIN_RATE_LIMIT_ATTEMPTS` | `10` | IP başına pencere içinde izin verilen giriş isteği sayısı. |
 | `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `60` | Giriş sınırının saniye cinsinden penceresi. |
+| `RABBITMQ_ENABLED` | `false` | E-posta outbox işlerini RabbitMQ kuyruğu üzerinden yayınlamayı açar. |
+| `RABBITMQ_HOST` | `localhost` | RabbitMQ sunucu adresi (`compose.yaml` `app` profilinde `rabbitmq`). |
+| `RABBITMQ_PORT` | `5672` | RabbitMQ AMQP bağlantı noktası. |
+| `RABBITMQ_USERNAME` | `slotly` | RabbitMQ kullanıcı adı. |
+| `RABBITMQ_PASSWORD` | `slotly` | RabbitMQ parolası. |
+| `SLOTLY_ADMIN_USERNAME` | — | Başlangıçta oluşturulacak ilk yönetici hesabının kullanıcı adı. |
+| `SLOTLY_ADMIN_PASSWORD` | — | İlk yönetici hesabının parolası (en az 12 karakter). |
 | `SPRING_PROFILES_ACTIVE` | — | Canlı ayarlar için `prod`; eksik DB/CORS/JWT değerlerinde başlangıcı başarısız yapar. |
 
 PowerShell'de yalnızca o terminal oturumu için ortam değişkeni ayarlama örneği:

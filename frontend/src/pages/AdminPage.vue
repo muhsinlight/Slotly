@@ -40,10 +40,11 @@ type Overview = {
   upcoming: number
   waiting: number
   offers: number
+  timeZone?: string
 }
 
 const overview = ref<Overview>({
-  appointments: [], waitlist: [], appointmentTotal: 0, waitlistTotal: 0, upcoming: 0, waiting: 0, offers: 0,
+  appointments: [], waitlist: [], appointmentTotal: 0, waitlistTotal: 0, upcoming: 0, waiting: 0, offers: 0, timeZone: 'Europe/Istanbul',
 })
 const loading = ref(true)
 const error = ref('')
@@ -68,7 +69,7 @@ function dateTime(value: string): string {
   return new Date(value).toLocaleString('tr-TR', {
     dateStyle: 'medium',
     timeStyle: 'short',
-    timeZone: 'Europe/Istanbul',
+    timeZone: overview.value.timeZone || 'Europe/Istanbul',
   })
 }
 

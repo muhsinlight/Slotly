@@ -87,12 +87,14 @@ async function startReschedule(appointment: Appointment): Promise<void> {
   loadingSlots.value = true
   try {
     const place = await getPlace(appointment.placeId)
+    if (editingId.value !== appointment.id) return
     editingPlace.value = place
     placeTimeZone.value = place.timeZone
     selectedDate.value = businessDate(place.timeZone)
     firstDate.value = selectedDate.value
     await loadRescheduleSlots(appointment, place)
   } catch (cause) {
+    if (editingId.value !== appointment.id) return
     editError.value = (cause as Error).message
     loadingSlots.value = false
   }
@@ -110,12 +112,18 @@ async function loadRescheduleSlots(appointment: Appointment, knownPlace?: Place)
     }
     const place = knownPlace
       || (editingPlace.value?.id === appointment.placeId ? editingPlace.value : await getPlace(appointment.placeId))
+    if (editingId.value !== appointment.id) return
     editingPlace.value = place
-    availableSlots.value = await listSlots(place, appointment.offeringId, selectedDate.value)
+    const slots = await listSlots(place, appointment.offeringId, selectedDate.value)
+    if (editingId.value !== appointment.id) return
+    availableSlots.value = slots
   } catch (cause) {
+    if (editingId.value !== appointment.id) return
     editError.value = (cause as Error).message
   } finally {
-    loadingSlots.value = false
+    if (editingId.value === appointment.id) {
+      loadingSlots.value = false
+    }
   }
 }
 
@@ -171,7 +179,7 @@ onMounted(loadAppointments)
             {{ busyId === item.id ? 'İptal ediliyor…' : 'İptal et' }}
           </button>
           <button v-if="filter === 'upcoming'" class="text-button" :disabled="!!busyId" @click="startReschedule(item)">Saat değiştir</button>
-          <div v-if="editingId === item.id" class="reschedule-form">
+          <div v-if="filter === 'upcoming' && editingId === item.id" class="reschedule-form">
             <label>Yeni tarih <input v-model="selectedDate" type="date" :min="firstDate" :disabled="loadingSlots" @change="loadRescheduleSlots(item)" /></label>
             <p v-if="loadingSlots" class="empty" role="status">Saatler yükleniyor…</p>
             <label v-else>Yeni saat
