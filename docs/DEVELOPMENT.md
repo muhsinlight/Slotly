@@ -14,7 +14,7 @@ Pilot tek backend örneğine göre hazırlanmıştır. Giriş/kurtarma istek sı
 
 Test, derleme ve push çıktıları varsayılan olarak terminalde tutulur. Dosyaya kayıt gerektiğinde proje kökünde log oluşturmayın; Git dışında tutulan `tmp/verification/` dizininde işlem başına sabit ad kullanın: `backend.log`, `build.log`, `browser.log`, `api.log` veya `push.log`. Her çalıştırmada aynı dosyanın üzerine yazın; özellik veya tarih içeren yeni adlarla dosya biriktirmeyin. Bu geçici çıktılar, aşağıda açıklanan backend çalışma loglarından ayrıdır.
 
-Windows'ta GitHub'a göndermeden önce CI kontrollerinin tamamını proje kökünden çalıştırın (Docker Desktop, Java 25 ve Node.js 24 gerekir):
+Windows'ta GitHub'a göndermeden önce CI kontrollerinin tamamını proje kökünden çalıştırın (yerel PostgreSQL 14, Java 25 ve Node.js 24 gerekir; Docker Desktop gerekmez):
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check.ps1
@@ -32,7 +32,7 @@ Kanca hata olduğunda push'u engeller. Kontrollerin gönderilen commit'i doğrul
 
 Backend testleri:
 
-Backend testleri geçici PostgreSQL 17 konteynerinde çalışır. Ayrı test veritabanı, 5433 portu ve geçici disk kullanılır; geliştirme veritabanına dokunulmaz.
+Yerel `scripts/check.ps1` backend testlerini PostgreSQL 14 üzerinde ayrı ve geçici `slotly_check_*_test` veritabanlarında çalıştırır; geliştirme veritabanına dokunulmaz. CI ise PostgreSQL 17 servisini kullanır.
 
 Testler `integration-test` profilini ve `TEST_DATABASE_URL`, `TEST_DATABASE_USERNAME`, `TEST_DATABASE_PASSWORD` değişkenlerini kullanır. Normal uygulamanın `DATABASE_URL` değeri test bağlantısını değiştirmez. Doğrudan Maven test komutu da varsayılan olarak 5433 üzerindeki `slotly_test` veritabanını bekler.
 
