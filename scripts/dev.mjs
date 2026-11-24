@@ -271,6 +271,7 @@ async function main() {
     const mavenOptions = process.env.MAVEN_OPTS || ''
     const env = {
       ...process.env,
+      SPRING_PROFILES_ACTIVE: process.env.SPRING_PROFILES_ACTIVE || 'local',
       MAVEN_OPTS: /(^|\s)-Duser\.home=/.test(mavenOptions)
         ? mavenOptions
         : `${mavenOptions} -Duser.home=${process.env.USERPROFILE || process.env.HOME}`.trim(),

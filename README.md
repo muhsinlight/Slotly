@@ -20,7 +20,9 @@ Bir randevu iptal edildiğinde boşalan saat, bekleme listesindeki sıradaki mü
 
 ## Hızlı başlangıç
 
-JDK 25, Node.js 24+, pnpm 12, PostgreSQL 17 ve Git gerekir. Önce yerel PostgreSQL'de `slotly` veritabanını ve erişim kullanıcısını hazırlayın. Farklı bağlantı bilgileri için `DATABASE_URL`, `DATABASE_USERNAME` ve `DATABASE_PASSWORD` ortam değişkenlerini ayarlayın. Ardından depo kökünde:
+JDK 25, Node.js 24+, pnpm 12, PostgreSQL 17 ve Git gerekir. Önce yerel PostgreSQL'de `slotly` veritabanını ve erişim kullanıcısını hazırlayın. Farklı bağlantı bilgileri için `DATABASE_URL`, `DATABASE_USERNAME` ve `DATABASE_PASSWORD` ortam değişkenlerini ayarlayın.
+
+Kalıcı yerel bağlantı ayarlarını `backend/config/application-local.properties` dosyasında tutabilirsiniz. Bu dosya Git tarafından yok sayılır ve geliştirme komutu `local` profilini varsayılan olarak açar. Ardından depo kökünde:
 
 ```sh
 node scripts/dev.mjs
