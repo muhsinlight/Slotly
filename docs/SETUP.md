@@ -4,7 +4,7 @@
 
 ## Kurulum ve yerelde çalıştırma
 
-Aşağıdaki komutlar Windows PowerShell içindir. macOS/Linux karşılıkları ayrıca verilmiştir. Depo özeldir; klonlama için GitHub erişimi gerekir. Mevcut proje klasöründeyseniz klonlama adımını atlayın.
+Aşağıdaki komutlar Windows PowerShell içindir; macOS/Linux karşılıkları ayrıca verilmiştir. Yerelde JDK 25, Node.js veya PostgreSQL kurmadan tüm yığını Docker ile başlatmak isterseniz depo kökünde `docker compose --profile app up --build` (hazır demo verisiyle denemek için `docker compose -f docker/compose.demo.yaml --profile app up --build`) çalıştırabilirsiniz. Mevcut proje klasöründeyseniz klonlama adımını atlayın.
 
 ### 1. Depoyu alın
 
@@ -115,6 +115,7 @@ Backend aşağıdaki değerleri süreç ortam değişkenlerinden okur. Varsayıl
 | `JWT_SECRET` | Yerel geliştirme anahtarı | JWT imzalama anahtarı. Yerel varsayılanı canlı ortamda kullanmayın; dış ortamda gizli, güçlü ve en az 32 baytlık bir anahtar sağlayın. |
 | `BUSINESS_TIME_ZONE` | `Europe/Istanbul` | Çalışma saatlerinin yorumlandığı saat dilimi |
 | `CORS_ALLOWED_ORIGINS` | Yerel Vite adresleri | Virgülle ayrılmış izinli arayüz origin'leri; canlı profilde açıkça ayarlanmalıdır. |
+| `FRONTEND_URL` | `http://localhost:5173` | E-posta doğrulama, parola kurtarma ve bildirim bağlantılarında kullanılan arayüz adresi; canlı profilde açıkça ayarlanmalıdır. |
 | `LOGIN_RATE_LIMIT_ATTEMPTS` | `10` | IP başına pencere içinde izin verilen giriş isteği sayısı. |
 | `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `60` | Giriş sınırının saniye cinsinden penceresi. |
 | `SPRING_PROFILES_ACTIVE` | — | Canlı ayarlar için `prod`; eksik DB/CORS/JWT değerlerinde başlangıcı başarısız yapar. |

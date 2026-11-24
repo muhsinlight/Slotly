@@ -1,6 +1,6 @@
 # Slotly geliştirme planı
 
-Bu dosya mevcut davranışı ve açık ürün kararlarını özetler. Test sonuçlarının kaynağı ilgili commit'in CI çalışmasıdır; farklı oturumların sonuçları güncel durum olarak birleştirilmez. Değişiklik yapan oturum yalnız kendi kapsamını günceller; başka dalda kalan veya doğrulanmamış işi tamamlandı olarak işaretlemez.
+Bu dosya mevcut davranışı ve açık ürün kararlarını özetler. Test sonuçlarının kaynağı ilgili commit'in CI çalışmasıdır.
 
 ## Mevcut uygulama durumu
 
@@ -63,7 +63,7 @@ Backend testleri uygulama bağlamına ek olarak kapasite, eşzamanlı istekler, 
 
 **Tamamlanma ölçütü:** Tekrarlanabilir kontroller kapasite aşımını, mükerrer randevuyu ve sıra ihlalini yakalar; CI başarısızsa değişiklik birleştirilmez.
 
-**Karar (Muhsin, 16 Kasım):** Teklif boyunca bir kişilik kapasite ayrılır. Kabul, ret, listeden ayrılma veya süre sonunda kapasite dönüşümü/serbest bırakılması testlerle doğrulanır.
+**Tasarım kararı:** Teklif boyunca bir kişilik kapasite ayrılır. Kabul, ret, listeden ayrılma veya süre sonunda kapasite dönüşümü/serbest bırakılması testlerle doğrulanır.
 
 ## 3. İşletme sahibinin günlük çalışma ekranı
 
@@ -76,7 +76,7 @@ Backend testleri uygulama bağlamına ek olarak kapasite, eşzamanlı istekler, 
 
 **Tamamlanma ölçütü:** İşletme sahibi API aracı açmadan bir mekân kurar, hizmetini ve saatlerini değiştirir, o günkü randevularını takip eder. Kapalı gün için yeni rezervasyon alınamaz.
 
-**Karar (Muhsin, 16 Kasım):** Mevcut randevuyla çakışan değişiklik engellenir. Uygulama aktif teklifleri de korur; özel gün kaldırma ve haftalık saat silme aynı kontrolden geçer.
+**Tasarım kararı:** Mevcut randevuyla çakışan değişiklik engellenir. Uygulama aktif teklifleri de korur; özel gün kaldırma ve haftalık saat silme aynı kontrolden geçer.
 
 ## 4. Bekleme listesini ürünün güçlü tarafı yapma
 
@@ -113,11 +113,11 @@ Backend testleri uygulama bağlamına ek olarak kapasite, eşzamanlı istekler, 
 
 1 → 2 → 3 → 4 → 5. Her aşama küçük, bağımsız görevler halinde doğrulanıp commit edilir. Takvim ve bildirim özelliklerinden önce temel müşteri akışı tamamlanır; pilot yayından önce güvenilirlik ve migration işleri bitirilir. Süre tahmini, aşama görevleri ve ürün kararları netleşince yapılır.
 
-Kapasite ayırma ve tarih istisnaları uygulanıp main'e birleşti. E-posta doğrulama ve parola kurtarma da eklendi. Teklif bildirimi ve randevu hatırlatma altyapısı gerçek gönderim kapalı olarak hazırlandı. Yeniden planlamada boşalan saat, Muhsin'in kararıyla iptal gibi FIFO teklifine açılır. Tamamlandı/gelmedi işlemleri, Muhsin’in onayıyla yalnız işletme sahibine randevu bitişinden itibaren açılır.
+Kapasite ayırma ve tarih istisnaları uygulanıp main'e birleşti. E-posta doğrulama ve parola kurtarma da eklendi. Teklif bildirimi ve randevu hatırlatma altyapısı gerçek gönderim kapalı olarak hazırlandı. Yeniden planlamada boşalan saat iptal gibi FIFO teklifine açılır; müşteri iptali de yeniden planlama gibi randevu başlangıç anından (`startsAt`) itibaren kapanır. Tamamlandı/gelmedi işlemleri yalnız işletme sahibine randevu bitişinden itibaren açılır.
 
-## Bağımsız görevler ve inceleme düzeni
+## Tamamlanan ve bekleyen başlıca iş paketleri
 
-Her satır ayrı görev dalında uygulanır; görev büyürse bağımsız alt görevlere bölünür. İlgili kontroller geçince Conventional Commit ve push yapılır. GitHub CI başarılı olduktan sonra main'e birleştirilir ve biten dal temizlenir. Her commit sonrası dosya/metot, önce–sonra kod farkı, gerekçe, doğrulama sonucu ve commit bağlantısı kullanıcıya gösterilir.
+Her satır bağımsız iş paketi olarak doğrulanır ve CI kontrolleri geçtikten sonra birleştirilir.
 
 | Sıra | Görev | Tamamlanma ölçütü / bağımlılık |
 |---|---|---|

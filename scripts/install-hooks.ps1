@@ -2,10 +2,6 @@ $ErrorActionPreference = 'Stop'
 
 Push-Location (Split-Path -Parent $PSScriptRoot)
 try {
-    if (!(Test-Path -LiteralPath (Join-Path $PSScriptRoot 'check.ps1') -PathType Leaf)) {
-        throw 'Local scripts/check.ps1 is missing. Copy it before installing hooks.'
-    }
-
     $existingHooksPath = & git config --get core.hooksPath
     if ($LASTEXITCODE -gt 1) {
         throw 'Could not read Git hook configuration.'
@@ -18,7 +14,12 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw 'Could not install repository hooks.'
     }
-    Write-Host 'Pre-push checks enabled for this clone.'
+    if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'check.ps1') -PathType Leaf) {
+        Write-Host 'Pre-push checks enabled for this clone (using local scripts/check.ps1).'
+    }
+    else {
+        Write-Host 'Pre-push hook enabled (will run frontend build; add local scripts/check.ps1 for full DB checks).'
+    }
 }
 finally {
     Pop-Location

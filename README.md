@@ -1,24 +1,43 @@
-﻿# Slotly
+# Slotly
+
+[![CI](https://github.com/muhsinlight/Slotly/actions/workflows/ci.yml/badge.svg)](https://github.com/muhsinlight/Slotly/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Randevu ve otomatik bekleme listesi yönetimi. Müşteriler uygun saatleri bulup randevu alır; işletmeler hizmetlerini, çalışma saatlerini ve randevularını tek panelden yönetir.
 
-Bir randevu iptal edildiğinde boşalan saat, bekleme listesindeki sıradaki müşteriye uygulama içinde teklif edilir. Teklif 30 dakika geçerlidir; reddedilirse veya süresi dolarsa sıra ilerler.
+Bir randevu iptal edildiğinde veya başka saate taşındığında boşalan saat, bekleme listesindeki sıradaki müşteriye uygulama içinde teklif edilir. Teklif 30 dakika geçerlidir; reddedilirse veya süresi dolarsa sıra ilerler.
 
 ## Özellikler
 
-- Mekân ve hizmet keşfi, uygun saat seçimi, randevu saatini değiştirme ve iptal.
-- İlk gelenin önce teklif aldığı bekleme listesi ve anlık teklif bildirimleri.
-- İşletmeler için hizmet/ürün, çalışma saati ve günlük/haftalık randevu yönetimi.
+- Mekân ve hizmet keşfi, uygun saat seçimi, yaklaşan randevunun saatini değiştirme ve iptal.
+- İlk gelenin önce teklif aldığı (FIFO) bekleme listesi, 1 koltukluk süreli teklif rezervi ve SSE ile anlık bildirimler.
+- İşletmeler için hizmet/ürün, haftalık çalışma saati, özel gün/tatil istisnaları ve tamamlandı/gelmedi sonuç yönetimi.
+- Doğrulanmış e-posta adresi, parola kurtarma, transactional outbox ve 2/24 saat randevu hatırlatma altyapısı.
 - Yöneticiler için tüm işletmelerin randevu ve bekleme kayıtlarını gösteren salt okunur panel.
-- Müşteri ve işletme sahibi rolleriyle JWT kimlik doğrulama.
 
 ## Teknolojiler
 
 **Backend:** Java 25, Spring Boot, Spring Security, JPA, Flyway ve PostgreSQL 17.
 
-**Frontend:** Vue 3, TypeScript, Vue Router ve Vite.
+**Frontend:** Vue 3, TypeScript, Vue Router, Temporal ve Vite (`pnpm`).
 
 ## Hızlı başlangıç
+
+### Seçenek 1 — Docker ile tek komutta çalıştırma
+
+Yerelde JDK 25, Node.js veya PostgreSQL kurmadan tüm yığını konteynerlerde başlatmak için:
+
+```sh
+docker compose --profile app up --build
+```
+
+Hazır örnek işletme, hizmetler ve demo hesaplarıyla (`demo-owner` / `demo-customer`, parola: `SlotlyDemo2026!`) denemek için:
+
+```sh
+docker compose -f docker/compose.demo.yaml --profile app up --build
+```
+
+### Seçenek 2 — Yerel geliştirme ortamı
 
 JDK 25, Node.js 24+, pnpm 12, PostgreSQL 17 ve Git gerekir. Önce yerel PostgreSQL'de `slotly` veritabanını ve erişim kullanıcısını hazırlayın. Farklı bağlantı bilgileri için `DATABASE_URL`, `DATABASE_USERNAME` ve `DATABASE_PASSWORD` ortam değişkenlerini ayarlayın.
 
@@ -30,13 +49,10 @@ node scripts/dev.mjs
 
 Komut çalışan PostgreSQL bağlantı noktasını kontrol eder, gerektiğinde frontend bağımlılıklarını kurar ve API ile web arayüzünü çalıştırır. PostgreSQL'i veya Docker'ı başlatmaz.
 
-RabbitMQ varsayılan olarak kapalıdır; normal geliştirme başlangıcında Docker gerekmez. RabbitMQ ile bildirim kuyruğunu denemek için `docker compose --profile messaging up -d --wait rabbitmq`
-komutunu çalıştırın ve API'yi `RABBITMQ_ENABLED=true` ortam değişkeniyle başlatın.
-RabbitMQ yönetim ekranı `http://localhost:15672` adresindedir (yerel kullanıcı/şifre: `slotly`).
-E-posta sağlayıcısı bağlı değilken e-posta işleri veritabanında bekler; yayınlama ve gönderim başlamaz.
+RabbitMQ varsayılan olarak kapalıdır; normal geliştirme başlangıcında Docker gerekmez. RabbitMQ ile bildirim kuyruğunu denemek için `docker compose --profile messaging up -d --wait rabbitmq` komutunu çalıştırın ve API'yi `RABBITMQ_ENABLED=true` ortam değişkeniyle başlatın. RabbitMQ yönetim ekranı `http://localhost:15672` adresindedir (yerel kullanıcı/şifre: `slotly`). E-posta sağlayıcısı bağlı değilken e-posta işleri veritabanında bekler; yayınlama ve gönderim başlamaz.
 
-- Web: http://localhost:5173
-- API: http://localhost:8080
+- Web: http://localhost:5173 (demo profilinde: http://localhost:5174)
+- API: http://localhost:8080 (demo profilinde: http://localhost:8082)
 - Sağlık kontrolü: http://localhost:8080/actuator/health
 
 Arayüzden işletme sahibi hesabı oluşturun; mekân, çalışma saatleri ve hizmet ekleyin. Randevu almak için müşteri hesabıyla giriş yapın. Hazır hesaplarla denemek için [ayrı demo ortamını](docs/SETUP.md#ayrı-demo-ortamı) kullanabilirsiniz.
@@ -49,25 +65,32 @@ Arayüzden işletme sahibi hesabı oluşturun; mekân, çalışma saatleri ve hi
 
 - [Kurulum, demo ve ortam değişkenleri](docs/SETUP.md)
 - [API referansı ve alan kuralları](docs/API.md)
+- [Hesap doğrulama ve parola kurtarma](docs/ACCOUNT.md)
+- [E-posta bildirimleri ve outbox kuyruğu](docs/NOTIFICATIONS.md)
+- [Randevu hatırlatmaları](docs/REMINDERS.md)
 - [Testler, CI ve yedekleme](docs/DEVELOPMENT.md)
-- [Yol haritası ve açık kararlar](docs/ROADMAP.md)
+- [Yol haritası ve ürün kararları](docs/ROADMAP.md)
 
 ## Proje yapısı
 
 ```text
-backend/       Tek Spring Boot uygulaması
+backend/       Tek Spring Boot uygulaması (Dockerfile dahil)
   src/main/java/com/slotly/api/
-    common/    Ortak ayarlar, güvenlik, yanıt ve hata yönetimi
-    module/    user, auth, place, booking ve waitlist alanları
-  src/main/resources/  Ayarlar ve migration dosyaları
-  src/test/    Backend testleri
-frontend/      Vue uygulaması ve tarayıcı testleri
-docs/          Kurulum, API ve geliştirme rehberleri
-docker/        Ayrı demo ve test veritabanları
+    common/    Ortak ayarlar, AOP, güvenlik, yanıt ve hata yönetimi
+    module/    user, auth, place, booking, waitlist ve notification alanları
+  src/main/resources/  Ayarlar ve Flyway migration dosyaları
+  src/test/    Backend birim, entegrasyon ve Postman testleri
+frontend/      Vue 3 uygulaması, Dockerfile ve Playwright tarayıcı testleri
+docs/          Kurulum, API, hesap, bildirim ve geliştirme rehberleri
+docker/        Ayrı demo ve test Compose ortamları
 scripts/       Geliştirme, test ve Git kancası araçları
 .github/       CI iş akışları
 ```
 
-`compose.yaml` isteğe bağlı konteyner veritabanını ve RabbitMQ'yu tanımlar. `docker/compose.demo.yaml`, `docker/compose.integration-test.yaml` ve `docker/compose.browser-test.yaml` demo ve test ortamlarını ayrı veritabanlarında çalıştırır.
+`compose.yaml` konteyner veritabanını, isteğe bağlı `app` profiliyle API/arayüz konteynerlerini ve `messaging` profiliyle RabbitMQ'yu tanımlar. `docker/compose.demo.yaml`, `docker/compose.integration-test.yaml` ve `docker/compose.browser-test.yaml` demo ve test ortamlarını ayrı veritabanlarında çalıştırır.
 
-`common` ve `module` aynı uygulamanın Java paketleridir; ayrı Maven projeleri değildir. Her alan kendi controller, DTO, entity, repository ve service katmanlarını içerir. Paket düzeni [aviation-platform örneğini](https://github.com/Mervearslan1/aviation-platform/tree/main/src/main/java/com/aviation/platform) izler; Slotly’nin mevcut sürümleri ve alan davranışları korunur.
+`common` ve `module` aynı uygulamanın Java paketleridir; ayrı Maven projeleri değildir. Her alan kendi controller, DTO, entity, repository ve service katmanlarını içerir.
+
+## Lisans
+
+Bu proje [MIT Lisansı](LICENSE) ile lisanslanmıştır.

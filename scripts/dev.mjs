@@ -12,10 +12,47 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const backendDirectory = path.join(root, 'backend')
 const frontendDirectory = path.join(root, 'frontend')
 const isWindows = process.platform === 'win32'
-const apiUrl = 'http://localhost:8080/actuator/health'
+const startupTimeoutMs = Math.max(10_000, Number(process.env.SLOTLY_DEV_TIMEOUT_MS || 180_000))
 const frontendUrl = 'http://127.0.0.1:5173/'
 const runningProcesses = []
 let shuttingDown = false
+
+function readLocalProperties() {
+  const candidates = [
+    path.join(backendDirectory, 'src', 'main', 'resources', 'application-local.properties'),
+    path.join(backendDirectory, 'config', 'application-local.properties'),
+  ]
+  const values = {}
+  for (const filePath of candidates) {
+    if (!existsSync(filePath)) {
+      continue
+    }
+    const content = readFileSync(filePath, 'utf8')
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.trim()
+      if (!line || line.startsWith('#') || line.startsWith('!')) {
+        continue
+      }
+      const separator = line.search(/[:=]/)
+      if (separator > 0) {
+        const key = line.slice(0, separator).trim()
+        const rawValue = line.slice(separator + 1).trim()
+        const placeholder = rawValue.match(/^\$\{([^:}]+)(?::(.*))?\}$/)
+        values[key] = placeholder
+          ? (process.env[placeholder[1]] ?? placeholder[2] ?? '')
+          : rawValue
+      }
+    }
+  }
+  return values
+}
+
+const localProperties = readLocalProperties()
+const apiPort = Number(process.env.SERVER_PORT || localProperties['server.port'] || 8080)
+if (!Number.isInteger(apiPort) || apiPort < 1 || apiPort > 65535) {
+  throw new Error('SERVER_PORT must be a valid TCP port between 1 and 65535.')
+}
+const apiUrl = `http://localhost:${apiPort}/actuator/health`
 
 function commandInvocation(command, args) {
   if (!isWindows || !/\.(cmd|bat)$/i.test(command)) {
@@ -63,7 +100,7 @@ function resolveMavenCommand() {
     'maven-wrapper.properties',
   )
   const wrapperProperties = readFileSync(wrapperPropertiesPath, 'utf8')
-  const distributionUrl = wrapperProperties.match(/^distributionUrl=(.+)$/m)?.[1]
+  const distributionUrl = wrapperProperties.match(/^distributionUrl=(.+)$/m)?.[1]?.trim()
 
   if (!distributionUrl) {
     throw new Error(`Could not find distributionUrl in ${wrapperPropertiesPath}`)
@@ -81,7 +118,7 @@ function resolveMavenCommand() {
     distributionName,
     hash,
     'bin',
-    'mvn.cmd',
+    isWindows ? 'mvn.cmd' : 'mvn',
   )
 
   if (existsSync(cachedCommand)) {
@@ -194,7 +231,9 @@ function shutdown(exitCode = 0) {
 }
 
 function databaseEndpoint() {
-  const jdbcUrl = process.env.DATABASE_URL || 'jdbc:postgresql://localhost:5432/slotly'
+  const jdbcUrl = process.env.DATABASE_URL
+    || localProperties['spring.datasource.url']
+    || 'jdbc:postgresql://localhost:5432/slotly'
   let url
 
   try {
@@ -228,9 +267,9 @@ async function waitForPostgres(host, port) {
 }
 
 async function waitForApplications() {
-  const deadline = Date.now() + 60_000
+  const deadline = Date.now() + startupTimeoutMs
 
-  while (Date.now() < deadline) {
+  while (Date.now() < deadline && !shuttingDown) {
     const [backendReady, frontendReady] = await Promise.all([
       isHttpReady(apiUrl),
       isHttpReady(frontendUrl),
@@ -243,7 +282,10 @@ async function waitForApplications() {
     await delay(1000)
   }
 
-  throw new Error('Backend and frontend did not both become ready within 60 seconds.')
+  if (shuttingDown) {
+    throw new Error('A child service exited before startup completed.')
+  }
+  throw new Error(`Backend and frontend did not both become ready within ${Math.round(startupTimeoutMs / 1000)} seconds.`)
 }
 
 async function main() {
@@ -259,8 +301,8 @@ async function main() {
   const backendReady = await isHttpReady(apiUrl)
   const frontendReady = await isHttpReady(frontendUrl)
 
-  if (!backendReady && await isPortOpen(8080)) {
-    throw new Error('Port 8080 is occupied by a process that is not Slotly.')
+  if (!backendReady && await isPortOpen(apiPort)) {
+    throw new Error(`Port ${apiPort} is occupied by a process that is not Slotly.`)
   }
   if (!frontendReady && await isPortOpen(5173)) {
     throw new Error('Port 5173 is occupied by a process that is not the Slotly Vite app.')
@@ -269,25 +311,31 @@ async function main() {
   if (!backendReady) {
     const mavenCommand = resolveMavenCommand()
     const mavenOptions = process.env.MAVEN_OPTS || ''
+    const userHome = process.env.USERPROFILE || process.env.HOME
+    const mavenArgs = []
+    if (userHome && !/(^|\s)-Duser\.home=/.test(mavenOptions)) {
+      mavenArgs.push(`-Duser.home=${userHome}`)
+    }
+    mavenArgs.push('spring-boot:run')
     const env = {
       ...process.env,
       SPRING_PROFILES_ACTIVE: process.env.SPRING_PROFILES_ACTIVE || 'local',
-      MAVEN_OPTS: /(^|\s)-Duser\.home=/.test(mavenOptions)
-        ? mavenOptions
-        : `${mavenOptions} -Duser.home=${process.env.USERPROFILE || process.env.HOME}`.trim(),
     }
-    launch('backend', mavenCommand, ['spring-boot:run'], backendDirectory, env)
+    launch('backend', mavenCommand, mavenArgs, backendDirectory, env)
   } else {
     console.log('[dev] Backend is already responding.')
   }
 
   if (!frontendReady) {
+    const frontendEnv = apiPort === 8080
+      ? process.env
+      : { ...process.env, VITE_API_BASE_URL: process.env.VITE_API_BASE_URL || `http://localhost:${apiPort}` }
     launch(
       'frontend',
       isWindows ? 'pnpm.cmd' : 'pnpm',
-      ['run', 'dev', '--', '--host', '127.0.0.1'],
+      ['run', 'dev', '--host', '127.0.0.1'],
       frontendDirectory,
-      process.env,
+      frontendEnv,
     )
   } else {
     console.log('[dev] Frontend is already responding.')
