@@ -45,10 +45,15 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
       window.dispatchEvent(new CustomEvent('slotly:unauthorized'))
     }
 
+    const rateLimitMessage = body?.message && !/^Login rate limit/i.test(body.message)
+      ? body.message
+      : path === '/auth/login'
+        ? 'Çok fazla giriş denemesi yapıldı. Biraz bekleyip yeniden dene.'
+        : 'Çok fazla istek gönderildi. Biraz bekleyip yeniden dene.'
     const messages: Record<number, string> = {
       401: 'Oturum açman gerekiyor. Kullanıcı adını ve parolanı kontrol et.',
       403: 'Bu işlem için yetkin bulunmuyor.',
-      429: 'Çok fazla giriş denemesi yapıldı. Biraz bekleyip yeniden dene.',
+      429: rateLimitMessage,
       500: 'İşlem tamamlanamadı. Biraz sonra yeniden dene.',
     }
     const details = body?.code === 'VALIDATION_ERROR' && body.data && typeof body.data === 'object'

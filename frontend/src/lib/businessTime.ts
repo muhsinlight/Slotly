@@ -30,3 +30,19 @@ export function timeFormatter(instant: string, timeZone: string): Intl.DateTimeF
     timeZoneName: day.hoursInDay > 24 ? 'shortOffset' : undefined,
   })
 }
+
+export function formatDay(instant: string, timeZone = 'Europe/Istanbul'): string {
+  return new Intl.DateTimeFormat('tr-TR', { day: '2-digit', timeZone }).format(new Date(instant))
+}
+
+export function formatMonth(instant: string, timeZone = 'Europe/Istanbul'): string {
+  return new Intl.DateTimeFormat('tr-TR', { month: 'short', timeZone }).format(new Date(instant))
+}
+
+export function formatDateTime(instant: string, timeZone = 'Europe/Istanbul'): string {
+  return new Intl.DateTimeFormat('tr-TR', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+    timeZone,
+  }).format(new Date(instant))
+}

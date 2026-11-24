@@ -6,7 +6,17 @@ import {
   deadline, entries, feedLoading as loading, feedError, markOffersRead, now, statusAt,
   refreshEntries as loadEntries, unreadOffers as unreadCount, type WaitlistEntry,
 } from '../composables/waitlist'
+import { formatDateTime, formatDay, formatMonth, timeFormatter } from '../lib/businessTime'
 import { request } from '../lib/api'
+
+function zoneOf(entry: WaitlistEntry): string {
+  return entry.timeZone || 'Europe/Istanbul'
+}
+
+function deadlineTime(entry: WaitlistEntry): string {
+  const timestamp = deadline(entry)
+  return timeFormatter(new Date(timestamp).toISOString(), zoneOf(entry)).format(timestamp)
+}
 
 const busyId = ref('')
 const actionError = ref('')
@@ -79,12 +89,12 @@ onMounted(loadEntries)
       <p v-if="loading" class="empty" role="status">Bekleme listen yükleniyor…</p>
       <div v-else-if="orderedEntries.length" class="appointment-list">
         <article v-for="entry in orderedEntries" :key="entry.id" class="appointment waitlist-entry" :class="{ 'offer-active': entry.status === 'OFFERED' }">
-          <div class="appointment-date"><b>{{ new Date(entry.startsAt).toLocaleDateString('tr-TR', { day: '2-digit' }) }}</b><small>{{ new Date(entry.startsAt).toLocaleDateString('tr-TR', { month: 'short' }) }}</small></div>
+          <div class="appointment-date"><b>{{ formatDay(entry.startsAt, zoneOf(entry)) }}</b><small>{{ formatMonth(entry.startsAt, zoneOf(entry)) }}</small></div>
           <div class="appointment-info">
             <b>{{ entry.offeringName }}</b>
-            <small>{{ entry.placeName }} · {{ new Date(entry.startsAt).toLocaleString('tr-TR', { dateStyle: 'long', timeStyle: 'short' }) }}</small>
+            <small>{{ entry.placeName }} · {{ formatDateTime(entry.startsAt, zoneOf(entry)) }}</small>
             <small v-if="entry.status === 'OFFERED'" class="offer-countdown">
-              Kalan süre {{ timeRemaining(entry) }} · Son: {{ new Date(deadline(entry)).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) }}
+              Kalan süre {{ timeRemaining(entry) }} · Son: {{ deadlineTime(entry) }}
             </small>
           </div>
           <span class="status" :class="{ 'waitlist-offer-status': entry.status === 'OFFERED' }">{{ statusLabel(entry.status) }}</span>

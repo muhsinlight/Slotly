@@ -41,3 +41,58 @@ test('acceptance and waiting end exactly when the appointment starts', async ({ 
   await expect(page.getByRole('button', { name: 'Kabul et' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Listeden ayrıl' })).toHaveCount(0)
 })
+
+test('appointments and waitlist display business time zone on out-of-zone mobile devices', async ({ browser, request }) => {
+  const customer = await account(request, 'CUSTOMER')
+  const context = await browser.newContext({
+    timezoneId: 'America/Los_Angeles',
+    viewport: { width: 390, height: 844 },
+  })
+  const page = await context.newPage()
+  try {
+    await page.addInitScript(token => localStorage.setItem('slotly-token', token), customer.token)
+    const startsAt = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10) + 'T09:00:00Z'
+    await page.route('**/api/appointments/me', route => route.fulfill({
+      json: {
+        data: [{
+          id: 'appt-tz',
+          placeId: 'place-tz',
+          placeName: 'İstanbul Stüdyo',
+          offeringId: 'svc-tz',
+          offeringName: 'Saç Kesimi',
+          startsAt,
+          endsAt: startsAt.replace('09:00:00Z', '09:30:00Z'),
+          status: 'CONFIRMED',
+          timeZone: 'Europe/Istanbul',
+        }],
+      },
+    }))
+    await page.route('**/api/waitlist/me', route => route.fulfill({
+      json: {
+        data: [{
+          id: 'wait-tz',
+          placeId: 'place-tz',
+          placeName: 'İstanbul Stüdyo',
+          offeringId: 'svc-tz',
+          offeringName: 'Saç Kesimi',
+          startsAt,
+          endsAt: startsAt.replace('09:00:00Z', '09:30:00Z'),
+          status: 'WAITING',
+          offerExpiresAt: null,
+          timeZone: 'Europe/Istanbul',
+        }],
+      },
+    }))
+
+    await page.goto('http://127.0.0.1:4173/appointments')
+    await expect(page.getByRole('article')).toContainText('12:00')
+    await expect(page.locator('.status')).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy()
+
+    await page.goto('http://127.0.0.1:4173/waitlist')
+    await expect(page.getByRole('article')).toContainText('12:00')
+    await expect(page.locator('.status')).toBeVisible()
+  } finally {
+    await context.close()
+  }
+})

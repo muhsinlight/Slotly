@@ -30,6 +30,7 @@ export type Appointment = {
   startsAt: string
   endsAt: string
   status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW'
+  timeZone?: string
 }
 
 export type BookingSelection = { placeId: string; offeringId: string; startsAt: string }

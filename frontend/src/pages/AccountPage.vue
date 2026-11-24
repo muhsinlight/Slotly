@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
 import NotificationSettings from '../components/NotificationSettings.vue'
+import { role } from '../composables/auth'
 import { request } from '../lib/api'
 
 const email = ref('')
@@ -53,7 +54,7 @@ async function save(): Promise<void> {
       <div class="settings-intro">
         <span class="eyebrow">HESABIN</span>
         <h1>Her şey kontrolünde.</h1>
-        <p>İletişim bilgilerini ve bildirim tercihlerini buradan yönet.</p>
+        <p>{{ role === 'CUSTOMER' ? 'İletişim bilgilerini ve bildirim tercihlerini buradan yönet.' : 'İletişim bilgilerini ve parola kurtarma adresini buradan yönet.' }}</p>
       </div>
       <div class="settings-layout">
         <aside class="settings-aside">
@@ -75,7 +76,7 @@ async function save(): Promise<void> {
             <p v-if="message" class="owner-notice" role="status">{{ message }}</p>
             <p v-if="error" class="booking-error" role="alert">{{ error }}</p>
           </section>
-          <NotificationSettings :verified="Boolean(verifiedEmail)" />
+          <NotificationSettings v-if="role === 'CUSTOMER'" :verified="Boolean(verifiedEmail)" />
         </div>
       </div>
     </main>

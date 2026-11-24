@@ -1,9 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
-import { appointmentStatusLabels, getPlace, listAppointments, listSlots, rescheduleAppointment, cancelAppointment as cancelRequest, type Appointment } from '../lib/bookings'
-import { businessDate, timeFormatter } from '../lib/businessTime'
+import {
+  appointmentStatusLabels,
+  cancelAppointment as cancelRequest,
+  getPlace,
+  listAppointments,
+  listSlots,
+  rescheduleAppointment,
+  type Appointment,
+  type Place,
+} from '../lib/bookings'
+import { businessDate, formatDateTime, formatDay, formatMonth, timeFormatter } from '../lib/businessTime'
 import { ApiError } from '../lib/api'
 
 const appointments = ref<Appointment[]>([])
@@ -11,6 +20,7 @@ const loading = ref(true)
 const error = ref('')
 const busyId = ref('')
 const editingId = ref('')
+const editingPlace = ref<Place | null>(null)
 const selectedDate = ref('')
 const firstDate = ref('')
 const placeTimeZone = ref('Europe/Istanbul')
@@ -19,21 +29,30 @@ const selectedSlot = ref('')
 const editError = ref('')
 const loadingSlots = ref(false)
 const filter = ref<'upcoming' | 'past' | 'cancelled'>('upcoming')
-const now = Date.now()
+const now = ref(Date.now())
+const clockTimer = window.setInterval(() => {
+  now.value = Date.now()
+}, 15_000)
+
 const visibleAppointments = computed(() => appointments.value.filter((item) => {
   if (filter.value === 'cancelled') return item.status === 'CANCELLED'
   if (item.status === 'CANCELLED') return false
   if (item.status !== 'CONFIRMED') return filter.value === 'past'
   return filter.value === 'upcoming'
-    ? new Date(item.startsAt).getTime() >= now
-    : new Date(item.startsAt).getTime() < now
+    ? new Date(item.startsAt).getTime() > now.value
+    : new Date(item.startsAt).getTime() <= now.value
 }))
+
+function zoneOf(appointment: Appointment): string {
+  return appointment.timeZone || 'Europe/Istanbul'
+}
 
 async function loadAppointments(): Promise<void> {
   loading.value = true
   error.value = ''
   try {
     appointments.value = await listAppointments()
+    now.value = Date.now()
   } catch (cause) {
     error.value = (cause as Error).message
   } finally {
@@ -43,7 +62,7 @@ async function loadAppointments(): Promise<void> {
 
 async function cancelAppointment(appointment: Appointment): Promise<void> {
   if (busyId.value) return
-  const date = new Date(appointment.startsAt).toLocaleString('tr-TR', { dateStyle: 'long', timeStyle: 'short' })
+  const date = formatDateTime(appointment.startsAt, zoneOf(appointment))
   if (!window.confirm(`${appointment.placeName} · ${appointment.offeringName}\n${date}\n\nBu randevuyu iptal etmek istiyor musun?`)) return
 
   busyId.value = appointment.id
@@ -61,23 +80,25 @@ async function cancelAppointment(appointment: Appointment): Promise<void> {
 async function startReschedule(appointment: Appointment): Promise<void> {
   if (busyId.value) return
   editingId.value = appointment.id
+  editingPlace.value = null
   availableSlots.value = []
   selectedSlot.value = ''
   editError.value = ''
   loadingSlots.value = true
   try {
     const place = await getPlace(appointment.placeId)
+    editingPlace.value = place
     placeTimeZone.value = place.timeZone
     selectedDate.value = businessDate(place.timeZone)
     firstDate.value = selectedDate.value
-    await loadRescheduleSlots(appointment)
+    await loadRescheduleSlots(appointment, place)
   } catch (cause) {
     editError.value = (cause as Error).message
     loadingSlots.value = false
   }
 }
 
-async function loadRescheduleSlots(appointment: Appointment): Promise<void> {
+async function loadRescheduleSlots(appointment: Appointment, knownPlace?: Place): Promise<void> {
   loadingSlots.value = true
   editError.value = ''
   availableSlots.value = []
@@ -87,7 +108,9 @@ async function loadRescheduleSlots(appointment: Appointment): Promise<void> {
       editError.value = 'Gelecekteki bir tarih seç.'
       return
     }
-    const place = await getPlace(appointment.placeId)
+    const place = knownPlace
+      || (editingPlace.value?.id === appointment.placeId ? editingPlace.value : await getPlace(appointment.placeId))
+    editingPlace.value = place
     availableSlots.value = await listSlots(place, appointment.offeringId, selectedDate.value)
   } catch (cause) {
     editError.value = (cause as Error).message
@@ -103,6 +126,7 @@ async function confirmReschedule(appointment: Appointment): Promise<void> {
   try {
     await rescheduleAppointment(appointment.id, selectedSlot.value)
     editingId.value = ''
+    editingPlace.value = null
     await loadAppointments()
   } catch (cause) {
     await loadRescheduleSlots(appointment)
@@ -113,6 +137,7 @@ async function confirmReschedule(appointment: Appointment): Promise<void> {
   }
 }
 
+onUnmounted(() => window.clearInterval(clockTimer))
 onMounted(loadAppointments)
 </script>
 
@@ -134,12 +159,12 @@ onMounted(loadAppointments)
       <div v-else-if="visibleAppointments.length" class="appointment-list">
         <article v-for="item in visibleAppointments" :key="item.id" class="appointment appointment-card">
           <div class="appointment-date">
-            <b>{{ new Date(item.startsAt).toLocaleDateString('tr-TR', { day: '2-digit' }) }}</b>
-            <small>{{ new Date(item.startsAt).toLocaleDateString('tr-TR', { month: 'short' }) }}</small>
+            <b>{{ formatDay(item.startsAt, zoneOf(item)) }}</b>
+            <small>{{ formatMonth(item.startsAt, zoneOf(item)) }}</small>
           </div>
           <div class="appointment-info">
             <b>{{ item.offeringName }}</b>
-            <small>{{ item.placeName }} · {{ new Date(item.startsAt).toLocaleString('tr-TR', { dateStyle: 'long', timeStyle: 'short' }) }}</small>
+            <small>{{ item.placeName }} · {{ formatDateTime(item.startsAt, zoneOf(item)) }}</small>
           </div>
           <span class="status" :class="item.status.toLowerCase()">{{ appointmentStatusLabels[item.status] }}</span>
           <button v-if="filter === 'upcoming'" class="text-button cancel" :disabled="busyId === item.id" @click="cancelAppointment(item)">
@@ -148,17 +173,19 @@ onMounted(loadAppointments)
           <button v-if="filter === 'upcoming'" class="text-button" :disabled="!!busyId" @click="startReschedule(item)">Saat değiştir</button>
           <div v-if="editingId === item.id" class="reschedule-form">
             <label>Yeni tarih <input v-model="selectedDate" type="date" :min="firstDate" :disabled="loadingSlots" @change="loadRescheduleSlots(item)" /></label>
-            <p v-if="loadingSlots" role="status">Saatler yükleniyor…</p>
+            <p v-if="loadingSlots" class="empty" role="status">Saatler yükleniyor…</p>
             <label v-else>Yeni saat
               <select v-model="selectedSlot" :disabled="!availableSlots.length">
                 <option value="">Saat seç</option>
                 <option v-for="slot in availableSlots" :key="slot" :value="slot">{{ timeFormatter(slot, placeTimeZone).format(new Date(slot)) }}</option>
               </select>
             </label>
-            <p v-if="!loadingSlots && !availableSlots.length">Bu tarihte uygun saat yok.</p>
-            <p v-if="editError" role="alert">{{ editError }}</p>
-            <button type="button" :disabled="!selectedSlot || !!busyId" @click="confirmReschedule(item)">Yeni saati onayla</button>
-            <button type="button" class="text-button" @click="editingId = ''">Vazgeç</button>
+            <p v-if="!loadingSlots && !availableSlots.length" class="empty">Bu tarihte uygun saat yok.</p>
+            <p v-if="editError" class="booking-error" role="alert">{{ editError }}</p>
+            <div class="reschedule-actions">
+              <button type="button" class="button primary" :disabled="!selectedSlot || !!busyId" @click="confirmReschedule(item)">Yeni saati onayla</button>
+              <button type="button" class="text-button" @click="editingId = ''">Vazgeç</button>
+            </div>
           </div>
         </article>
       </div>
