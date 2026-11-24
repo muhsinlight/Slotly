@@ -37,6 +37,14 @@ public interface AppointmentRepository extends JpaRepository<Appointment, UUID> 
         AppointmentStatus status
     );
 
+    boolean existsByCustomerIdAndOfferingIdAndStartsAtAndStatusAndIdNot(
+        UUID customerId,
+        UUID offeringId,
+        Instant startsAt,
+        AppointmentStatus status,
+        UUID id
+    );
+
     @EntityGraph(attributePaths = {"customer", "place", "offering"})
     List<Appointment> findByCustomerIdOrderByStartsAtDesc(UUID customerId);
 

@@ -2,6 +2,7 @@ package com.slotly.api.module.booking.controller;
 
 import com.slotly.api.module.booking.dto.request.AppointmentOutcomeRequest;
 import com.slotly.api.module.booking.dto.request.AppointmentRequest;
+import com.slotly.api.module.booking.dto.request.AppointmentRescheduleRequest;
 import com.slotly.api.module.booking.dto.response.AppointmentResponse;
 import com.slotly.api.common.response.ApiResponse;
 import com.slotly.api.module.booking.service.BookingService;
@@ -55,6 +56,18 @@ public class AppointmentController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void cancel(@PathVariable UUID id, Authentication authentication) {
         bookingService.cancel(UUID.fromString(authentication.getName()), id);
+    }
+
+    @PatchMapping("/appointments/{id}/reschedule")
+    public ResponseEntity<ApiResponse<AppointmentResponse>> reschedule(
+        @PathVariable UUID id,
+        @Valid @RequestBody AppointmentRescheduleRequest request,
+        Authentication authentication
+    ) {
+        return ApiResponse.<AppointmentResponse>builder()
+            .message("Appointment rescheduled")
+            .data(bookingService.reschedule(UUID.fromString(authentication.getName()), id, request.startsAt()))
+            .response();
     }
 
     @PatchMapping("/owner/appointments/{id}/outcome")

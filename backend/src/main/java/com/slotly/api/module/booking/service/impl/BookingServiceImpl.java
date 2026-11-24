@@ -7,6 +7,8 @@ import com.slotly.api.module.booking.entity.Appointment;
 import com.slotly.api.module.booking.entity.AppointmentStatus;
 import com.slotly.api.module.booking.repository.AppointmentRepository;
 import com.slotly.api.module.booking.service.AppointmentReservation;
+import com.slotly.api.module.booking.service.AvailabilityService;
+import com.slotly.api.module.booking.service.BookingCapacityService;
 import com.slotly.api.module.booking.service.BookingService;
 import com.slotly.api.module.place.entity.Offering;
 import com.slotly.api.module.place.entity.Place;
@@ -24,6 +26,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,6 +40,8 @@ public class BookingServiceImpl implements BookingService {
     private final AppointmentRepository appointments;
     private final UserRepository users;
     private final AppointmentReservation reservations;
+    private final AvailabilityService availability;
+    private final BookingCapacityService capacity;
     private final WaitlistQueue queue;
     private final Clock clock;
 
@@ -46,6 +51,8 @@ public class BookingServiceImpl implements BookingService {
         AppointmentRepository appointments,
         UserRepository users,
         AppointmentReservation reservations,
+        AvailabilityService availability,
+        BookingCapacityService capacity,
         WaitlistQueue queue,
         Clock clock
     ) {
@@ -54,6 +61,8 @@ public class BookingServiceImpl implements BookingService {
         this.appointments = appointments;
         this.users = users;
         this.reservations = reservations;
+        this.availability = availability;
+        this.capacity = capacity;
         this.queue = queue;
         this.clock = clock;
     }
@@ -96,6 +105,45 @@ public class BookingServiceImpl implements BookingService {
 
         appointment.cancel();
         queue.fillReleasedWindow(place, appointment.getStartsAt(), appointment.getEndsAt());
+    }
+
+    @Transactional
+    public AppointmentResponse reschedule(UUID customerId, UUID appointmentId, Instant startsAt) {
+        Appointment appointment = appointments.findById(appointmentId)
+            .orElseThrow(() -> notFound("Appointment not found"));
+        Place place = places.findLockedById(appointment.getPlace().getId())
+            .orElseThrow(() -> notFound("Place not found"));
+        entityManager.refresh(appointment);
+        if (!appointment.getCustomer().getId().equals(customerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot reschedule this appointment");
+        }
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED || !appointment.getStartsAt().isAfter(clock.instant())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only upcoming confirmed appointments can be rescheduled");
+        }
+        if (appointment.getStartsAt().equals(startsAt)) {
+            return AppointmentResponse.from(appointment);
+        }
+        Offering offering = appointment.getOffering();
+        availability.ensureBookableOffering(place, offering);
+        Instant endsAt = startsAt.plus(Duration.ofMinutes(offering.getDurationMinutes()));
+        if (!startsAt.isAfter(clock.instant()) || !availability.isValidServiceSlot(place.getId(), offering, startsAt, endsAt)) {
+            throw bad("Appointment must start at an available service time");
+        }
+        Instant oldStart = appointment.getStartsAt();
+        Instant oldEnd = appointment.getEndsAt();
+        queue.advanceBeforeBooking(place, startsAt, endsAt);
+        if (appointments.existsByCustomerIdAndOfferingIdAndStartsAtAndStatusAndIdNot(
+            customerId, offering.getId(), startsAt, AppointmentStatus.CONFIRMED, appointmentId
+        )) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have this appointment");
+        }
+        if (!capacity.hasCapacityWithoutAppointment(place, startsAt, endsAt, appointmentId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Place has no capacity for this time");
+        }
+        appointment.reschedule(startsAt);
+        entityManager.flush();
+        queue.fillReleasedWindow(place, oldStart, oldEnd);
+        return AppointmentResponse.from(appointment);
     }
 
     @Transactional(readOnly = true)

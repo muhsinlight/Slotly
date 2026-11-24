@@ -64,7 +64,15 @@ public class BookingCapacityService {
         return schedule(place, startsAt, endsAt, acceptedOfferId).hasCapacity(startsAt, endsAt);
     }
 
+    public boolean hasCapacityWithoutAppointment(Place place, Instant startsAt, Instant endsAt, UUID appointmentId) {
+        return schedule(place, startsAt, endsAt, null, appointmentId).hasCapacity(startsAt, endsAt);
+    }
+
     public CapacitySchedule schedule(Place place, Instant from, Instant to, UUID acceptedOfferId) {
+        return schedule(place, from, to, acceptedOfferId, null);
+    }
+
+    private CapacitySchedule schedule(Place place, Instant from, Instant to, UUID acceptedOfferId, UUID excludedAppointmentId) {
         var overlapping = appointments.findByPlaceIdAndStatusAndStartsAtLessThanAndEndsAtGreaterThan(
             place.getId(),
             AppointmentStatus.CONFIRMED,
@@ -73,6 +81,9 @@ public class BookingCapacityService {
         );
         TreeMap<Instant, Integer> changes = new TreeMap<>();
         for (Appointment appointment : overlapping) {
+            if (appointment.getId().equals(excludedAppointmentId)) {
+                continue;
+            }
             changes.merge(appointment.getStartsAt(), 1, Integer::sum);
             changes.merge(appointment.getEndsAt(), -1, Integer::sum);
         }

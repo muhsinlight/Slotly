@@ -110,4 +110,12 @@ public class Appointment {
         }
         status = AppointmentStatus.CANCELLED;
     }
+
+    public void reschedule(Instant newStartsAt) {
+        if (status != AppointmentStatus.CONFIRMED) {
+            throw new IllegalStateException("Only confirmed appointments can be rescheduled");
+        }
+        startsAt = newStartsAt;
+        endsAt = newStartsAt.plusSeconds((long) offering.getDurationMinutes() * 60);
+    }
 }

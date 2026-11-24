@@ -172,6 +172,37 @@ class BookingServiceIntegrationTests {
     }
 
     @Test
+    void rescheduleKeepsAppointmentIdAndOffersReleasedSlotToFirstWaitingCustomer() {
+        Offering service = saveService(30);
+        UUID appointmentId = book(customerOne, service, at(10, 0));
+        UUID waitingId = joinWaitlist(customerTwo, service, at(10, 0)).id();
+
+        var changed = bookingService.reschedule(customerOne.getId(), appointmentId, at(11, 0));
+
+        assertEquals(appointmentId, changed.id());
+        assertEquals(at(11, 0), changed.startsAt());
+        assertEquals(AppointmentStatus.CONFIRMED, appointments.findById(appointmentId).orElseThrow().getStatus());
+        assertEquals(WaitlistStatus.OFFERED, waitlist.findById(waitingId).orElseThrow().getStatus());
+        assertStatus(HttpStatus.CONFLICT, () -> book(customerTwo, service, at(10, 0)));
+    }
+
+    @Test
+    void failedOrUnauthorizedRescheduleLeavesOriginalAppointmentAndQueueIntact() {
+        Offering service = saveService(30);
+        UUID appointmentId = book(customerOne, service, at(10, 0));
+        UUID waitingId = joinWaitlist(customerTwo, service, at(10, 0)).id();
+        book(customerTwo, service, at(11, 0));
+
+        assertStatus(HttpStatus.FORBIDDEN, () ->
+            bookingService.reschedule(customerTwo.getId(), appointmentId, at(12, 0)));
+        assertStatus(HttpStatus.CONFLICT, () ->
+            bookingService.reschedule(customerOne.getId(), appointmentId, at(11, 0)));
+
+        assertEquals(at(10, 0), appointments.findById(appointmentId).orElseThrow().getStartsAt());
+        assertEquals(WaitlistStatus.WAITING, waitlist.findById(waitingId).orElseThrow().getStatus());
+    }
+
+    @Test
     void simultaneousRequestsCannotExceedCapacity() throws Exception {
         Offering service = saveService(30);
         Instant startsAt = at(10, 0);
