@@ -65,7 +65,12 @@ test('customer changes an upcoming appointment without losing its identity', asy
 
   await page.goto('/login?returnTo=' + encodeURIComponent('/appointments'))
   await login(page, data.customer.username)
+  await page.route('**/api/places/' + data.place.id, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    await route.continue()
+  })
   await page.getByRole('button', { name: 'Saat değiştir' }).click()
+  await expect(page.getByLabel('Yeni tarih')).toBeEnabled()
   await page.getByLabel('Yeni tarih').fill(data.date)
   await page.getByRole('combobox', { name: 'Yeni saat' }).selectOption(data.date + 'T09:30:00Z')
   await page.getByRole('button', { name: 'Yeni saati onayla' }).click()
