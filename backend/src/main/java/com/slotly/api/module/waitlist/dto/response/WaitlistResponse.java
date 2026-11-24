@@ -3,6 +3,7 @@ package com.slotly.api.module.waitlist.dto.response;
 import com.slotly.api.module.waitlist.entity.WaitlistEntry;
 import com.slotly.api.module.waitlist.entity.WaitlistStatus;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.UUID;
 
 public record WaitlistResponse(
@@ -14,17 +15,28 @@ public record WaitlistResponse(
     Instant startsAt,
     Instant endsAt,
     String status,
-    Instant offerExpiresAt
+    Instant offerExpiresAt,
+    String timeZone
 ) {
+    private static final ZoneId DEFAULT_ZONE = ZoneId.of("Europe/Istanbul");
+
     public static WaitlistResponse from(WaitlistEntry entry) {
-        return from(entry, entry.getStatus());
+        return from(entry, entry.getStatus(), DEFAULT_ZONE);
+    }
+
+    public static WaitlistResponse from(WaitlistEntry entry, ZoneId timeZone) {
+        return from(entry, entry.getStatus(), timeZone);
     }
 
     public static WaitlistResponse at(WaitlistEntry entry, Instant now) {
-        return from(entry, entry.isDue(now) ? WaitlistStatus.EXPIRED : entry.getStatus());
+        return at(entry, now, DEFAULT_ZONE);
     }
 
-    private static WaitlistResponse from(WaitlistEntry entry, WaitlistStatus status) {
+    public static WaitlistResponse at(WaitlistEntry entry, Instant now, ZoneId timeZone) {
+        return from(entry, entry.isDue(now) ? WaitlistStatus.EXPIRED : entry.getStatus(), timeZone);
+    }
+
+    private static WaitlistResponse from(WaitlistEntry entry, WaitlistStatus status, ZoneId timeZone) {
         return new WaitlistResponse(
             entry.getId(),
             entry.getPlace().getId(),
@@ -34,7 +46,8 @@ public record WaitlistResponse(
             entry.getRequestedStartsAt(),
             entry.getRequestedEndsAt(),
             status.name(),
-            entry.getOfferExpiresAt()
+            entry.getOfferExpiresAt(),
+            timeZone.getId()
         );
     }
 }

@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -112,6 +113,43 @@ class ApiRoleBoundaryIntegrationTests {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.message").value("Invalid or missing request parameter"));
+    }
+
+    @Test
+    void unsupportedMethodsMediaTypesAndMissingRoutesDoNotReturnInternalServerError() throws Exception {
+        String customer = tokenFor(UserRole.CUSTOMER);
+
+        mockMvc.perform(delete("/api/places"))
+            .andExpect(status().isMethodNotAllowed())
+            .andExpect(jsonPath("$.status").value(405));
+
+        mockMvc.perform(post("/api/places/{id}/offerings", UUID.randomUUID())
+                .header("Authorization", "Bearer " + customer)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isMethodNotAllowed());
+
+        mockMvc.perform(post("/api/places")
+                .header("Authorization", "Bearer " + customer)
+                .contentType(MediaType.TEXT_PLAIN)
+                .content("plain-body"))
+            .andExpect(status().isMethodNotAllowed());
+
+        mockMvc.perform(post("/api/appointments")
+                .header("Authorization", "Bearer " + customer)
+                .contentType(MediaType.TEXT_PLAIN)
+                .content("plain-body"))
+            .andExpect(status().isUnsupportedMediaType())
+            .andExpect(jsonPath("$.status").value(415));
+
+        mockMvc.perform(get("/api/places")
+                .accept(MediaType.valueOf("text/csv")))
+            .andExpect(status().isNotAcceptable());
+
+        mockMvc.perform(get("/api/unknown-endpoint")
+                .header("Authorization", "Bearer " + customer))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.status").value(404));
     }
 
     private String tokenFor(UserRole role) {
