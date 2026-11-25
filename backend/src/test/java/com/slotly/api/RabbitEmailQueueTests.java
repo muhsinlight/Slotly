@@ -1,5 +1,6 @@
 package com.slotly.api;
 
+import com.slotly.api.common.exception.RabbitMqException;
 import com.slotly.api.module.notification.service.EmailDispatcher;
 import com.slotly.api.module.notification.service.EmailDeliveryScheduler;
 import com.slotly.api.module.notification.service.EmailGateway;
@@ -11,6 +12,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -18,11 +20,31 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class RabbitEmailQueueTests {
+    @Test
+    void wrapsBrokerPublishFailureAsRabbitMqException() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        RabbitTemplate rabbit = mock(RabbitTemplate.class);
+        EmailDispatcher dispatcher = mock(EmailDispatcher.class);
+        Clock clock = Clock.systemUTC();
+        UUID messageId = UUID.randomUUID();
+        when(dispatcher.canDeliver()).thenReturn(true);
+        when(jdbc.queryForList(any(String.class), eq(UUID.class), any(Timestamp.class), any(Timestamp.class), any(Timestamp.class)))
+            .thenReturn(List.of(messageId));
+        doThrow(new AmqpException("broker unavailable"))
+            .when(rabbit).convertAndSend("slotly.email.ready", messageId.toString());
+
+        RabbitEmailQueue queue = new RabbitEmailQueue(jdbc, clock, rabbit, dispatcher);
+
+        assertThrows(RabbitMqException.class, queue::publishReady);
+    }
+
     @Test
     void publishesCommittedOutboxIdsAndConsumesById() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);

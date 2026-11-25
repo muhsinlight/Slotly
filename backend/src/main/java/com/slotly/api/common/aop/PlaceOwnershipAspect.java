@@ -7,7 +7,7 @@ import org.aspectj.lang.annotation.Before;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
-import org.springframework.web.server.ResponseStatusException;
+import com.slotly.api.common.exception.ApiException;
 
 import java.util.UUID;
 
@@ -27,9 +27,9 @@ public class PlaceOwnershipAspect {
         UUID ownerId = (UUID) arguments[0];
         UUID placeId = (UUID) arguments[1];
         var place = (policy.lock() ? places.findLockedById(placeId) : places.findById(placeId))
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Place not found"));
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Place not found"));
         if (!place.getOwner().getId().equals(ownerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Place belongs to another owner");
+            throw new ApiException(HttpStatus.FORBIDDEN, "Place belongs to another owner");
         }
     }
 }

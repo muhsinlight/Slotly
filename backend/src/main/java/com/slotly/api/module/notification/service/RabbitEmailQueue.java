@@ -1,9 +1,7 @@
 package com.slotly.api.module.notification.service;
 
-import java.sql.Timestamp;
-import java.time.Clock;
-import java.time.Duration;
-import java.util.UUID;
+import com.slotly.api.common.exception.RabbitMqException;
+import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -13,6 +11,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+
+import java.sql.Timestamp;
+import java.time.Clock;
+import java.time.Duration;
+import java.util.UUID;
 
 @Configuration
 @ConditionalOnProperty(name = "slotly.rabbitmq.enabled", havingValue = "true")
@@ -59,7 +62,11 @@ public class RabbitEmailQueue {
             FROM ready WHERE o.id = ready.id RETURNING o.id
             """, UUID.class, Timestamp.from(now), Timestamp.from(now), Timestamp.from(now.plus(REPUBLISH_AFTER)));
         for (UUID id : ids) {
-            rabbit.convertAndSend(RabbitEmailQueueConfiguration.QUEUE, id.toString());
+            try {
+                rabbit.convertAndSend(RabbitEmailQueueConfiguration.QUEUE, id.toString());
+            } catch (AmqpException exception) {
+                throw new RabbitMqException(exception);
+            }
         }
     }
 

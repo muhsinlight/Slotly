@@ -10,7 +10,7 @@ import com.slotly.api.module.waitlist.entity.WaitlistEntry;
 import com.slotly.api.module.waitlist.service.WaitlistQueue;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
+import com.slotly.api.common.exception.ApiException;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -44,24 +44,24 @@ public class AppointmentReservation {
         availability.ensureBookableOffering(place, offering);
         Instant endsAt = startsAt.plus(Duration.ofMinutes(offering.getDurationMinutes()));
         if (!startsAt.isAfter(clock.instant()) || !availability.isValidServiceSlot(place.getId(), offering, startsAt, endsAt)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Appointment must start at an available service time");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Appointment must start at an available service time");
         }
         UUID heldSeat = null;
         if (offer == null) {
             queue.advanceBeforeBooking(place, startsAt, endsAt);
         } else {
             if (!endsAt.equals(offer.getRequestedEndsAt())) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "The offered service duration has changed");
+                throw new ApiException(HttpStatus.CONFLICT, "The offered service duration has changed");
             }
             heldSeat = offer.getId();
         }
         if (appointments.existsByCustomerIdAndOfferingIdAndStartsAtAndStatus(
             customer.getId(), offering.getId(), startsAt, AppointmentStatus.CONFIRMED
         )) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have this appointment");
+            throw new ApiException(HttpStatus.CONFLICT, "You already have this appointment");
         }
         if (!capacity.hasCapacity(place, startsAt, endsAt, heldSeat)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Place has no capacity for this time");
+            throw new ApiException(HttpStatus.CONFLICT, "Place has no capacity for this time");
         }
         return appointments.save(new Appointment(customer, place, offering, startsAt, endsAt));
     }

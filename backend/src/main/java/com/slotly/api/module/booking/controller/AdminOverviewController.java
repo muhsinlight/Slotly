@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
+import com.slotly.api.common.exception.ApiException;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -52,7 +52,7 @@ public class AdminOverviewController {
     ) {
         if (size < 1 || size > 100 || appointmentPage < 0 || waitlistPage < 0
             || (long) Math.max(appointmentPage, waitlistPage) * size > Integer.MAX_VALUE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid page number or page size");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid page number or page size");
         }
         String term = q.strip().toLowerCase(Locale.forLanguageTag("tr"));
         var booked = appointments.adminPage(term, PageRequest.of(appointmentPage, size));

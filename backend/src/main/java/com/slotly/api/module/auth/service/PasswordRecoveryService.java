@@ -10,7 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import com.slotly.api.common.exception.ApiException;
 
 @Service
 public class PasswordRecoveryService {
@@ -79,7 +79,7 @@ public class PasswordRecoveryService {
             Timestamp.from(clock.instant()), userId);
     }
 
-    private ResponseStatusException invalidToken() {
-        return new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bağlantı geçersiz veya süresi dolmuş.");
+    private ApiException invalidToken() {
+        return new ApiException(HttpStatus.BAD_REQUEST, "Bağlantı geçersiz veya süresi dolmuş.");
     }
 }
