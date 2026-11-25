@@ -1,6 +1,6 @@
 package com.slotly.api.module.place.entity;
 
-import com.slotly.api.common.persistence.AuditableEntity;
+import com.slotly.api.common.persistence.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -18,7 +18,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "calendar_exceptions", uniqueConstraints = @UniqueConstraint(columnNames = {"place_id", "date"}))
-public class CalendarException extends AuditableEntity {
+public class CalendarException extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;

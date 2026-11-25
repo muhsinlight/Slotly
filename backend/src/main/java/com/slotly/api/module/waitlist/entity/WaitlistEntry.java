@@ -1,6 +1,6 @@
 package com.slotly.api.module.waitlist.entity;
 
-import com.slotly.api.common.persistence.AuditableEntity;
+import com.slotly.api.common.persistence.BaseEntity;
 import com.slotly.api.module.place.entity.Offering;
 import com.slotly.api.module.place.entity.Place;
 import com.slotly.api.module.user.entity.User;
@@ -21,7 +21,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "waitlist_entries")
-public class WaitlistEntry extends AuditableEntity {
+public class WaitlistEntry extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
