@@ -15,6 +15,20 @@ Bir randevu iptal edildiğinde veya başka saate taşındığında boşalan saat
 - Doğrulanmış e-posta adresi, parola kurtarma, transactional outbox ve 2/24 saat randevu hatırlatma altyapısı.
 - Yöneticiler için tüm işletmelerin randevu ve bekleme kayıtlarını gösteren salt okunur panel.
 
+## Ekran görüntüleri
+
+Görüntüler yerel demo ortamında örnek verilerle alındı; tarihler ve randevu saatleri güncel müsaitlik bilgisi değildir.
+
+![Mekân keşfi](docs/screenshots/discovery.jpg)
+
+![Hizmet ve saat seçimi](docs/screenshots/booking.jpg)
+
+![Bekleme listesinde yeni teklif](docs/screenshots/waitlist-offer.jpg)
+
+## Demo ve kapsam
+
+Slotly, GitHub üzerinden incelenen ve yerelde çalıştırılan bir demo projesidir; barındırılan bir üretim ortamı veya canlı pilot planı yoktur. E-posta doğrulama, parola kurtarma, teklif ve hatırlatma akışları gönderimleri outbox'a kaydeder; e-posta sağlayıcısı bağlanmadığından gerçek e-posta teslimatı yapılmaz. Uygulama tek backend örneği varsayar; istek sınırları ve SSE bağlantıları süreç belleğinde tutulur. JWT tarayıcıda `localStorage` içinde saklanır. Ayrıntılar için [geliştirme ve pilot sınırlarına](docs/DEVELOPMENT.md) bakın.
+
 ## Teknolojiler
 
 **Backend:** Java 25, Spring Boot, Spring Security, JPA, Flyway ve PostgreSQL 17.
