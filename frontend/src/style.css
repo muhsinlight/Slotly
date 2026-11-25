@@ -1005,6 +1005,15 @@ a {
   padding: 0 16px;
   font-size: 13px;
 }
+.auth-forgot-link {
+  display: inline-block;
+  margin-top: 12px;
+  color: #6946dc;
+  font-size: 13px;
+}
+.auth-forgot-link:hover {
+  text-decoration: underline;
+}
 .auth-error {
   margin: -3px 0 0;
   color: #a23831;
