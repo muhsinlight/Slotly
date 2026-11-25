@@ -1,5 +1,6 @@
 package com.slotly.api.module.booking.entity;
 
+import com.slotly.api.common.persistence.BaseEntity;
 import com.slotly.api.module.place.entity.Offering;
 import com.slotly.api.module.place.entity.Place;
 import com.slotly.api.module.user.entity.User;
@@ -22,7 +23,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "appointments", indexes = @Index(columnList = "place_id,starts_at,ends_at"))
-public class Appointment {
+public class Appointment extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;

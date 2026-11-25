@@ -3,6 +3,7 @@ package com.slotly.api.common.exception;
 import com.slotly.api.common.response.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.AmqpException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +18,6 @@ import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Map;
@@ -89,28 +89,49 @@ public class GlobalExceptionHandler {
         return response(HttpStatus.NOT_ACCEPTABLE, "Requested media type is not acceptable", null, "NOT_ACCEPTABLE");
     }
 
-    @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<ApiResponse<Void>> handleResponseStatus(
-            ResponseStatusException exception
-    ) {
-        HttpStatus status = HttpStatus.valueOf(exception.getStatusCode().value());
+    @ExceptionHandler(BaseApiException.class)
+    public ResponseEntity<ApiResponse<Void>> handleApiException(BaseApiException exception) {
         String message = exception.getReason() == null
-                ? status.getReasonPhrase()
+                ? exception.getStatus().getReasonPhrase()
                 : exception.getReason();
-
-        return response(status, message, null, codeFor(status));
+        return response(exception.getStatus(), message, null, exception.getCode());
     }
 
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ApiResponse<Void>> handleDatabase(
             DataAccessException exception
     ) {
+        return handleDatabaseException(new DatabaseException(exception));
+    }
+
+    @ExceptionHandler(DatabaseException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDatabaseException(
+            DatabaseException exception
+    ) {
         logFailure("Database operation failed", exception);
         return response(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                "A database operation failed",
+                exception.getStatus(),
+                exception.getReason(),
                 null,
-                "DATABASE_ERROR"
+                exception.getCode()
+        );
+    }
+
+    @ExceptionHandler(AmqpException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRabbitMq(AmqpException exception) {
+        return handleRabbitMqException(new RabbitMqException(exception));
+    }
+
+    @ExceptionHandler(RabbitMqException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRabbitMqException(
+            RabbitMqException exception
+    ) {
+        logFailure("RabbitMQ operation failed", exception);
+        return response(
+                exception.getStatus(),
+                exception.getReason(),
+                null,
+                exception.getCode()
         );
     }
 
@@ -160,15 +181,4 @@ public class GlobalExceptionHandler {
         logger.error("[{}] {} | details: slotly.log", errorId, message, exception);
     }
 
-    private String codeFor(HttpStatus status) {
-        return switch (status) {
-            case BAD_REQUEST -> "BAD_REQUEST";
-            case UNAUTHORIZED -> "UNAUTHORIZED";
-            case FORBIDDEN -> "FORBIDDEN";
-            case NOT_FOUND -> "NOT_FOUND";
-            case CONFLICT -> "CONFLICT";
-            case GONE -> "GONE";
-            default -> status.is5xxServerError() ? "INTERNAL_ERROR" : "REQUEST_ERROR";
-        };
-    }
 }

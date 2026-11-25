@@ -4,7 +4,7 @@
 
 ## Kurulum ve yerelde çalıştırma
 
-Aşağıdaki komutlar Windows PowerShell içindir; macOS/Linux karşılıkları ayrıca verilmiştir. Yerelde JDK 25, Node.js veya PostgreSQL kurmadan tüm yığını Docker ile başlatmak isterseniz depo kökünde `docker compose --profile app up --build` (hazır demo verisiyle denemek için `docker compose -f docker/compose.demo.yaml --profile app up --build`) çalıştırabilirsiniz. Mevcut proje klasöründeyseniz klonlama adımını atlayın.
+Aşağıdaki PowerShell örnekleri Windows içindir; API başlatma adımında macOS/Linux komutu da verilmiştir. Docker Compose, SQL ve `pnpm` komutları her iki ortamda da aynıdır. Yerelde JDK 25, Node.js veya PostgreSQL kurmadan tüm yığını Docker ile başlatmak isterseniz depo kökünde `docker compose --profile app up --build` (hazır demo verisiyle denemek için `docker compose -f docs/docker/compose.demo.yaml --profile app up --build`) çalıştırabilirsiniz. Mevcut proje klasöründeyseniz klonlama adımını atlayın.
 
 ### 1. Depoyu alın
 
@@ -89,7 +89,7 @@ API'yi doğrudan kullanırken kayıt ve giriş ayrı çağrılardır: `POST /api
 Demo kendi `slotly_demo` veritabanı, 5435 portu ve `slotly-demo` Compose projesini kullanır. Tek örnek işletme, iki hizmet, haftalık çalışma saatleri ve iki hesap oluşturur. Yeniden başlatmak mevcut demo işletmesini çoğaltmaz.
 
 ```powershell
-docker compose -f docker/compose.demo.yaml up -d --wait
+docker compose -f docs/docker/compose.demo.yaml up -d --wait
 cd backend
 .\mvnw.cmd spring-boot:run '-Dspring-boot.run.profiles=demo'
 ```
@@ -102,7 +102,7 @@ $env:VITE_API_BASE_URL = 'http://localhost:8082'
 pnpm run dev --port 5174 --strictPort
 ```
 
-`http://localhost:5174` üzerinde `demo-owner` veya `demo-customer` ile giriş yapılabilir; yalnız bu yerel demo hesaplarının parolası `SlotlyDemo2026!` olur. Demo profili `prod` ile birlikte çalışmayı ve farklı adlı veritabanına örnek veri yazmayı reddeder. Demo veritabanını durdurmak için `docker compose -f docker/compose.demo.yaml down` kullanılır.
+`http://localhost:5174` üzerinde `demo-owner` veya `demo-customer` ile giriş yapılabilir; yalnız bu yerel demo hesaplarının parolası `SlotlyDemo2026!` olur. Demo profili `prod` ile birlikte çalışmayı ve farklı adlı veritabanına örnek veri yazmayı reddeder. Demo veritabanını durdurmak için `docker compose -f docs/docker/compose.demo.yaml down` kullanılır.
 
 Backend aşağıdaki değerleri süreç ortam değişkenlerinden okur. Varsayılanlar yerel geliştirme içindir.
 

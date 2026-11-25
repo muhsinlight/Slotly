@@ -1,5 +1,6 @@
 package com.slotly.api.module.place.entity;
 
+import com.slotly.api.common.persistence.BaseEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -19,7 +20,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "business_hours", indexes = @Index(columnList = "place_id,day_of_week"))
-public class BusinessHour {
+public class BusinessHour extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;

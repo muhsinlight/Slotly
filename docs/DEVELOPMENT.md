@@ -30,6 +30,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-hooks.ps1
 
 Kanca hata olduğunda push'u engeller. Kontrollerin gönderilen commit'i doğrulaması için çalışma ağacının temiz olmasını ve gönderilen commit'in mevcut `HEAD` olmasını ister; yalnız dal silen push'larda test çalıştırmaz. Git kancası yereldir ve atlanabilir; GitHub CI kontrolleri etkin kalır ve Linux ortamındaki farkları da yakalar.
 
+## Entity zaman damgaları ve API hataları
+
+Kalıcı JPA entity'leri `common.persistence.BaseEntity` tabanından `createdAt` ve `updatedAt` alanlarını alır. Yeni kayıtta iki alan doldurulur; JPA güncellemelerinde `updatedAt` yenilenir. Flyway `V9__entity_audit_timestamps.sql` mevcut satırlar için başlangıç zamanlarını ekler ve PostgreSQL trigger'ları doğrudan SQL güncellemelerinde de `updated_at` alanını yeniler. Zaman damgaları şu anda API DTO'larında gösterilmez.
+
+Controller ve servis katmanlarında iş kuralı hataları `ApiException` ile ifade edilir. `BaseApiException` ortak HTTP durumu ve hata kodunu taşır; HTTP isteği sırasında oluşan veritabanı ve RabbitMQ istisnaları teknik ayrıntıları istemciye sızdırmadan eşlenir. RabbitMQ yayıncısı zamanlanmış arka plan işi olduğundan yayın hatası bir HTTP yanıtına dönüşmez. HTTP yanıt sözleşmesi ve hata kodlarının anlamı için [API referansına](API.md) bakın.
+
 Backend testleri:
 
 Yerel `scripts/check.ps1` backend testlerini yerel PostgreSQL (14+) üzerinde ayrı ve geçici `slotly_check_*_test` veritabanlarında çalıştırır; geliştirme veritabanına dokunulmaz. CI ise PostgreSQL 17 servisini kullanır.

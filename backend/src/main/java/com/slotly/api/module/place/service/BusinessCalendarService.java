@@ -15,7 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import com.slotly.api.common.exception.ApiException;
 
 import java.time.Clock;
 import java.time.DayOfWeek;
@@ -108,12 +108,12 @@ public class BusinessCalendarService {
     public CalendarExceptionResponse save(UUID ownerId, UUID placeId, LocalDate date, CalendarExceptionRequest request) {
         Place place = requireOwner(ownerId, placeId, true);
         if (date.isBefore(LocalDate.now(clock.withZone(zone)))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Geçmiş bir günün çalışma düzeni değiştirilemez.");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Geçmiş bir günün çalışma düzeni değiştirilemez.");
         }
         if (request.closed() == null || (request.closed()
             ? request.opensAt() != null || request.closesAt() != null
             : request.opensAt() == null || request.closesAt() == null || !request.opensAt().isBefore(request.closesAt()))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Kapalı gün saat içeremez; açık gün için geçerli açılış ve kapanış gerekir.");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Kapalı gün saat içeremez; açık gün için geçerli açılış ve kapanış gerekir.");
         }
         CalendarException exception = exceptions.findByPlaceIdAndDate(placeId, date)
             .orElseGet(() -> new CalendarException(place, date));
@@ -127,7 +127,7 @@ public class BusinessCalendarService {
     public void delete(UUID ownerId, UUID placeId, LocalDate date) {
         requireOwner(ownerId, placeId, true);
         CalendarException exception = exceptions.findByPlaceIdAndDate(placeId, date)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Özel gün bulunamadı."));
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Özel gün bulunamadı."));
         exceptions.delete(exception);
         exceptions.flush();
         validateCommitments(placeId);
@@ -138,7 +138,7 @@ public class BusinessCalendarService {
         requireOwner(ownerId, placeId, true);
         var hour = hours.findById(hourId)
             .filter(value -> value.getPlace().getId().equals(placeId))
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Çalışma saati bulunamadı."));
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Çalışma saati bulunamadı."));
         hours.delete(hour);
         hours.flush();
         validateCommitments(placeId);
@@ -161,24 +161,24 @@ public class BusinessCalendarService {
             && intervals(placeId, localStart.toLocalDate()).stream().anyMatch(interval ->
                 !localStart.toLocalTime().isBefore(interval.opensAt()) && !localEnd.toLocalTime().isAfter(interval.closesAt()));
         if (!covered) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
+            throw new ApiException(HttpStatus.CONFLICT,
                 "Değişiklik mevcut randevu veya aktif bekleme teklifiyle çakışıyor. Önce bu kayıtları çözümleyin.");
         }
     }
 
     private Place requireOwner(UUID ownerId, UUID placeId, boolean lock) {
         Place place = places.findById(placeId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mekân bulunamadı."));
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Mekân bulunamadı."));
         if (!place.getOwner().getId().equals(ownerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bu mekânı yönetemezsiniz.");
+            throw new ApiException(HttpStatus.FORBIDDEN, "Bu mekânı yönetemezsiniz.");
         }
         if (!lock) {
             return place;
         }
         Place lockedPlace = places.findLockedById(placeId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mekân bulunamadı."));
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Mekân bulunamadı."));
         if (!lockedPlace.getOwner().getId().equals(ownerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bu mekânı yönetemezsiniz.");
+            throw new ApiException(HttpStatus.FORBIDDEN, "Bu mekânı yönetemezsiniz.");
         }
         return lockedPlace;
     }

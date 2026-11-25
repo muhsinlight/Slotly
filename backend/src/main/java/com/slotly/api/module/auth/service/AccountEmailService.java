@@ -17,7 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import com.slotly.api.common.exception.ApiException;
 
 @Service
 public class AccountEmailService {
@@ -63,7 +63,7 @@ public class AccountEmailService {
         if (!previous.isEmpty()) {
             Instant last = ((Timestamp) previous.getFirst().get("last_requested_at")).toInstant();
             if (last.plusSeconds(60).isAfter(now)) {
-                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Bir dakika sonra yeniden dene.");
+                throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Bir dakika sonra yeniden dene.");
             }
         }
         boolean claimed = Boolean.TRUE.equals(jdbc.queryForObject("""
@@ -72,7 +72,7 @@ public class AccountEmailService {
                     AND purpose = 'VERIFY_EMAIL' AND consumed_at IS NULL AND expires_at > ?)
             """, Boolean.class, email, userId, email, userId, Timestamp.from(now)));
         if (claimed) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bu adres kullanılamıyor.");
+            throw new ApiException(HttpStatus.CONFLICT, "Bu adres kullanılamıyor.");
         }
         jdbc.update("""
             INSERT INTO account_emails(id, last_requested_at) VALUES (?, ?)
@@ -117,7 +117,7 @@ public class AccountEmailService {
 
     void lockUser(UUID userId) {
         if (jdbc.queryForList("SELECT id FROM app_users WHERE id = ? FOR UPDATE", userId).isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Hesap bulunamadı.");
+            throw new ApiException(HttpStatus.NOT_FOUND, "Hesap bulunamadı.");
         }
     }
 
@@ -151,7 +151,7 @@ public class AccountEmailService {
         }
     }
 
-    private ResponseStatusException invalidToken() {
-        return new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bağlantı geçersiz veya süresi dolmuş.");
+    private ApiException invalidToken() {
+        return new ApiException(HttpStatus.BAD_REQUEST, "Bağlantı geçersiz veya süresi dolmuş.");
     }
 }

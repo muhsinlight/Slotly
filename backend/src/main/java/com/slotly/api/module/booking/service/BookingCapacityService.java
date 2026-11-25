@@ -9,7 +9,7 @@ import com.slotly.api.module.waitlist.entity.WaitlistStatus;
 import com.slotly.api.module.waitlist.repository.WaitlistRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
+import com.slotly.api.common.exception.ApiException;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -50,7 +50,7 @@ public class BookingCapacityService {
         for (int change : changes.values()) {
             active += change;
             if (active > capacity) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                throw new ApiException(HttpStatus.CONFLICT,
                     "Kapasite mevcut randevu veya aktif bekleme tekliflerinin altına indirilemez.");
             }
         }

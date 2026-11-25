@@ -21,7 +21,7 @@ import com.slotly.api.module.waitlist.service.WaitlistQueue;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import com.slotly.api.common.exception.ApiException;
 
 import java.util.List;
 import java.util.UUID;
@@ -213,7 +213,7 @@ public class PlaceServiceImpl implements PlaceService {
                 && existing.getOpensAt().isBefore(request.closesAt())
                 && existing.getClosesAt().isAfter(request.opensAt()));
         if (overlaps) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Business hour overlaps an existing interval");
+            throw new ApiException(HttpStatus.CONFLICT, "Business hour overlaps an existing interval");
         }
         return BusinessHourResponse.from(
             hours.save(new BusinessHour(place, request.dayOfWeek(), request.opensAt(), request.closesAt()))
@@ -253,11 +253,11 @@ public class PlaceServiceImpl implements PlaceService {
         return offerings.findById(id).orElseThrow(() -> notFound("Offering not found"));
     }
 
-    private ResponseStatusException notFound(String message) {
-        return new ResponseStatusException(HttpStatus.NOT_FOUND, message);
+    private ApiException notFound(String message) {
+        return new ApiException(HttpStatus.NOT_FOUND, message);
     }
 
-    private ResponseStatusException bad(String message) {
-        return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+    private ApiException bad(String message) {
+        return new ApiException(HttpStatus.BAD_REQUEST, message);
     }
 }

@@ -9,7 +9,7 @@ import com.slotly.api.module.place.service.BusinessCalendarService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import com.slotly.api.common.exception.ApiException;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -117,11 +117,11 @@ public class AvailabilityService {
         return offerings.findById(id).orElseThrow(() -> notFound("Offering not found"));
     }
 
-    private ResponseStatusException notFound(String message) {
-        return new ResponseStatusException(HttpStatus.NOT_FOUND, message);
+    private ApiException notFound(String message) {
+        return new ApiException(HttpStatus.NOT_FOUND, message);
     }
 
-    private ResponseStatusException bad(String message) {
-        return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+    private ApiException bad(String message) {
+        return new ApiException(HttpStatus.BAD_REQUEST, message);
     }
 }

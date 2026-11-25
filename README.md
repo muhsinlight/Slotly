@@ -48,7 +48,7 @@ docker compose --profile app up --build
 Hazır örnek işletme, hizmetler ve demo hesaplarıyla (`demo-owner` / `demo-customer`, parola: `SlotlyDemo2026!`) denemek için:
 
 ```sh
-docker compose -f docker/compose.demo.yaml --profile app up --build
+docker compose -f docs/docker/compose.demo.yaml --profile app up --build
 ```
 
 ### Seçenek 2 — Yerel geliştirme ortamı
@@ -90,18 +90,18 @@ Arayüzden işletme sahibi hesabı oluşturun; mekân, çalışma saatleri ve hi
 ```text
 backend/       Tek Spring Boot uygulaması (Dockerfile dahil)
   src/main/java/com/slotly/api/
-    common/    Ortak ayarlar, AOP, güvenlik, yanıt ve hata yönetimi
+    common/    Ortak ayarlar, BaseEntity, AOP, güvenlik, yanıt ve hata yönetimi
     module/    user, auth, place, booking, waitlist ve notification alanları
   src/main/resources/  Ayarlar ve Flyway migration dosyaları
   src/test/    Backend birim, entegrasyon ve Postman testleri
 frontend/      Vue 3 uygulaması, Dockerfile ve Playwright tarayıcı testleri
 docs/          Kurulum, API, hesap, bildirim ve geliştirme rehberleri
-docker/        Ayrı demo ve test Compose ortamları
+  docker/      Ayrı demo ve test Compose ortamları
 scripts/       Geliştirme, test ve Git kancası araçları
 .github/       CI iş akışları
 ```
 
-`compose.yaml` konteyner veritabanını, isteğe bağlı `app` profiliyle API/arayüz konteynerlerini ve `messaging` profiliyle RabbitMQ'yu tanımlar. `docker/compose.demo.yaml`, `docker/compose.integration-test.yaml` ve `docker/compose.browser-test.yaml` demo ve test ortamlarını ayrı veritabanlarında çalıştırır.
+`compose.yaml` konteyner veritabanını, isteğe bağlı `app` profiliyle API/arayüz konteynerlerini ve `messaging` profiliyle RabbitMQ'yu tanımlar. `docs/docker/compose.demo.yaml`, `docs/docker/compose.integration-test.yaml` ve `docs/docker/compose.browser-test.yaml` demo ve test ortamlarını ayrı veritabanlarında çalıştırır.
 
 `common` ve `module` aynı uygulamanın Java paketleridir; ayrı Maven projeleri değildir. Her alan kendi controller, DTO, entity, repository ve service katmanlarını içerir.
 

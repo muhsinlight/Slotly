@@ -15,7 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import com.slotly.api.common.exception.ApiException;
 
 @Service
 public class NotificationService {
@@ -66,12 +66,12 @@ public class NotificationService {
     @Transactional
     public void savePreferences(UUID userId, Preferences preferences) {
         if (preferences.reminderHours() != 2 && preferences.reminderHours() != 24) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hatırlatma 2 veya 24 saat önce olabilir.");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Hatırlatma 2 veya 24 saat önce olabilir.");
         }
         jdbc.queryForList("SELECT id FROM app_users WHERE id = ? FOR UPDATE", userId);
         if ((preferences.offerEmail() || preferences.reminderEmail()) && jdbc.queryForObject(
             "SELECT count(*) FROM account_emails WHERE id = ? AND verified = true", Integer.class, userId) == 0) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Önce e-posta adresini doğrula.");
+            throw new ApiException(HttpStatus.CONFLICT, "Önce e-posta adresini doğrula.");
         }
         jdbc.update("""
             INSERT INTO notification_preferences(id, offer_email, reminder_email, reminder_hours) VALUES (?, ?, ?, ?)

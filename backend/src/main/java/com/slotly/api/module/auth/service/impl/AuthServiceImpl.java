@@ -17,7 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import com.slotly.api.common.exception.ApiException;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -51,10 +51,10 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public RegistrationResponse register(RegisterRequest request) {
         if (request.role() == UserRole.ADMIN) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Admin registration is not allowed");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Admin registration is not allowed");
         }
         if (userRepository.existsByUsername(request.username())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+            throw new ApiException(HttpStatus.CONFLICT, "Username already exists");
         }
 
         User user = new User(
@@ -68,7 +68,7 @@ public class AuthServiceImpl implements AuthService {
         try {
             savedUser = userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException exception) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Username already exists");
+            throw new ApiException(HttpStatus.CONFLICT, "Username already exists");
         }
 
         return new RegistrationResponse(
@@ -108,7 +108,7 @@ public class AuthServiceImpl implements AuthService {
         );
     }
 
-    private ResponseStatusException invalidCredentials() {
-        return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+    private ApiException invalidCredentials() {
+        return new ApiException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
     }
 }

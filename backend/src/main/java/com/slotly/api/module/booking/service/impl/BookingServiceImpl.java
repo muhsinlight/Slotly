@@ -22,7 +22,7 @@ import jakarta.persistence.PersistenceContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import com.slotly.api.common.exception.ApiException;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -67,7 +67,7 @@ public class BookingServiceImpl implements BookingService {
         this.clock = clock;
     }
 
-    @Transactional(noRollbackFor = ResponseStatusException.class)
+    @Transactional(noRollbackFor = ApiException.class)
     public AppointmentResponse createAppointment(UUID customerId, AppointmentRequest request) {
         Place place = places.findLockedById(request.placeId()).orElseThrow(() -> notFound("Place not found"));
         Offering offering = requireOffering(request.offeringId());
@@ -92,7 +92,7 @@ public class BookingServiceImpl implements BookingService {
         boolean isCustomer = appointment.getCustomer().getId().equals(callerId);
         boolean isOwner = appointment.getPlace().getOwner().getId().equals(callerId);
         if (!isCustomer && !isOwner) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot cancel this appointment");
+            throw new ApiException(HttpStatus.FORBIDDEN, "You cannot cancel this appointment");
         }
 
         Place place = places.findLockedById(appointment.getPlace().getId())
@@ -101,25 +101,25 @@ public class BookingServiceImpl implements BookingService {
 
         if (appointment.getStatus() != AppointmentStatus.CONFIRMED
             || !appointment.getStartsAt().isAfter(clock.instant())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only upcoming confirmed appointments can be cancelled");
+            throw new ApiException(HttpStatus.CONFLICT, "Only upcoming confirmed appointments can be cancelled");
         }
 
         appointment.cancel();
         queue.fillReleasedWindow(place, appointment.getStartsAt(), appointment.getEndsAt());
     }
 
-    @Transactional(noRollbackFor = ResponseStatusException.class)
+    @Transactional(noRollbackFor = ApiException.class)
     public AppointmentResponse reschedule(UUID customerId, UUID appointmentId, Instant startsAt) {
         Appointment appointment = appointments.findById(appointmentId)
             .orElseThrow(() -> notFound("Appointment not found"));
         if (!appointment.getCustomer().getId().equals(customerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot reschedule this appointment");
+            throw new ApiException(HttpStatus.FORBIDDEN, "You cannot reschedule this appointment");
         }
         Place place = places.findLockedById(appointment.getPlace().getId())
             .orElseThrow(() -> notFound("Place not found"));
         entityManager.refresh(appointment);
         if (appointment.getStatus() != AppointmentStatus.CONFIRMED || !appointment.getStartsAt().isAfter(clock.instant())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only upcoming confirmed appointments can be rescheduled");
+            throw new ApiException(HttpStatus.CONFLICT, "Only upcoming confirmed appointments can be rescheduled");
         }
         if (appointment.getStartsAt().equals(startsAt)) {
             return AppointmentResponse.from(appointment, availability.timeZone());
@@ -136,10 +136,10 @@ public class BookingServiceImpl implements BookingService {
         if (appointments.existsByCustomerIdAndOfferingIdAndStartsAtAndStatusAndIdNot(
             customerId, offering.getId(), startsAt, AppointmentStatus.CONFIRMED, appointmentId
         )) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have this appointment");
+            throw new ApiException(HttpStatus.CONFLICT, "You already have this appointment");
         }
         if (!capacity.hasCapacityWithoutAppointment(place, startsAt, endsAt, appointmentId)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Place has no capacity for this time");
+            throw new ApiException(HttpStatus.CONFLICT, "Place has no capacity for this time");
         }
         appointment.reschedule(startsAt);
         entityManager.flush();
@@ -169,7 +169,7 @@ public class BookingServiceImpl implements BookingService {
         Appointment appointment = appointments.findById(appointmentId)
             .orElseThrow(() -> notFound("Appointment not found"));
         if (!appointment.getPlace().getOwner().getId().equals(ownerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Place belongs to another owner");
+            throw new ApiException(HttpStatus.FORBIDDEN, "Place belongs to another owner");
         }
         places.findLockedById(appointment.getPlace().getId())
             .orElseThrow(() -> notFound("Place not found"));
@@ -179,7 +179,7 @@ public class BookingServiceImpl implements BookingService {
         } catch (IllegalArgumentException exception) {
             throw bad(exception.getMessage());
         } catch (IllegalStateException exception) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, exception.getMessage());
+            throw new ApiException(HttpStatus.CONFLICT, exception.getMessage());
         }
         return AppointmentResponse.from(appointment, availability.timeZone());
     }
@@ -188,11 +188,11 @@ public class BookingServiceImpl implements BookingService {
         return offerings.findById(id).orElseThrow(() -> notFound("Offering not found"));
     }
 
-    private ResponseStatusException notFound(String message) {
-        return new ResponseStatusException(HttpStatus.NOT_FOUND, message);
+    private ApiException notFound(String message) {
+        return new ApiException(HttpStatus.NOT_FOUND, message);
     }
 
-    private ResponseStatusException bad(String message) {
-        return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+    private ApiException bad(String message) {
+        return new ApiException(HttpStatus.BAD_REQUEST, message);
     }
 }

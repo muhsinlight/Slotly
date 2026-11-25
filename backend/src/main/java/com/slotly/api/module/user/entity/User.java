@@ -1,5 +1,6 @@
 package com.slotly.api.module.user.entity;
 
+import com.slotly.api.common.persistence.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,7 +14,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "app_users")
-public class User {
+public class User extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;

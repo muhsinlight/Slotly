@@ -25,7 +25,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import com.slotly.api.common.exception.ApiException;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -72,7 +72,7 @@ public class WaitlistServiceImpl implements WaitlistService {
         this.queue = queue;
     }
 
-    @Transactional(noRollbackFor = ResponseStatusException.class)
+    @Transactional(noRollbackFor = ApiException.class)
     public WaitlistResponse joinWaitlist(UUID customerId, WaitlistRequest request) {
         Place place = places.findLockedById(request.placeId()).orElseThrow(() -> notFound("Place not found"));
         Offering offering = requireOffering(request.offeringId());
@@ -88,7 +88,7 @@ public class WaitlistServiceImpl implements WaitlistService {
         }
         queue.advanceBeforeBooking(place, startsAt, endsAt);
         if (capacity.hasCapacity(place, startsAt, endsAt)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "The requested time is currently available");
+            throw new ApiException(HttpStatus.CONFLICT, "The requested time is currently available");
         }
         if (waitlist.existsByCustomerIdAndPlaceIdAndOfferingIdAndRequestedStartsAtAndStatusIn(
             customerId,
@@ -97,7 +97,7 @@ public class WaitlistServiceImpl implements WaitlistService {
             startsAt,
             List.of(WaitlistStatus.WAITING, WaitlistStatus.OFFERED)
         )) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "You are already waiting for this time");
+            throw new ApiException(HttpStatus.CONFLICT, "You are already waiting for this time");
         }
 
         User customer = users.findById(customerId).orElseThrow(() -> notFound("Customer not found"));
@@ -115,46 +115,46 @@ public class WaitlistServiceImpl implements WaitlistService {
             .toList();
     }
 
-    @Transactional(noRollbackFor = ResponseStatusException.class)
+    @Transactional(noRollbackFor = ApiException.class)
     public AppointmentResponse acceptWaitlistOffer(UUID customerId, UUID entryId) {
         WaitlistEntry entry = lockedEntry(customerId, entryId);
         Place place = entry.getPlace();
         ensureOpen(entry);
         if (entry.getStatus() != WaitlistStatus.OFFERED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "There is no active offer for this entry");
+            throw new ApiException(HttpStatus.CONFLICT, "There is no active offer for this entry");
         }
         Appointment appointment;
         try {
             appointment = reservations.reserve(entry.getCustomer(), place, entry.getOffering(),
                 entry.getRequestedStartsAt(), entry);
-        } catch (ResponseStatusException exception) {
+        } catch (ApiException exception) {
             entry.changeStatus(WaitlistStatus.EXPIRED);
             queue.fillReleasedWindow(place, entry.getRequestedStartsAt(), entry.getRequestedEndsAt());
-            throw new ResponseStatusException(HttpStatus.CONFLICT, exception.getReason());
+            throw new ApiException(HttpStatus.CONFLICT, exception.getMessage());
         }
         entry.changeStatus(WaitlistStatus.ACCEPTED);
         return AppointmentResponse.from(appointment, availability.timeZone());
     }
 
-    @Transactional(noRollbackFor = ResponseStatusException.class)
+    @Transactional(noRollbackFor = ApiException.class)
     public WaitlistResponse declineWaitlistOffer(UUID customerId, UUID entryId) {
         WaitlistEntry entry = lockedEntry(customerId, entryId);
         ensureOpen(entry);
         if (entry.getStatus() != WaitlistStatus.OFFERED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "There is no active offer for this entry");
+            throw new ApiException(HttpStatus.CONFLICT, "There is no active offer for this entry");
         }
         entry.changeStatus(WaitlistStatus.DECLINED);
         queue.fillReleasedWindow(entry.getPlace(), entry.getRequestedStartsAt(), entry.getRequestedEndsAt());
         return WaitlistResponse.from(entry, availability.timeZone());
     }
 
-    @Transactional(noRollbackFor = ResponseStatusException.class)
+    @Transactional(noRollbackFor = ApiException.class)
     public void leaveWaitlist(UUID customerId, UUID entryId) {
         WaitlistEntry entry = lockedEntry(customerId, entryId);
         ensureOpen(entry);
         boolean hadOffer = entry.getStatus() == WaitlistStatus.OFFERED;
         if (entry.getStatus() != WaitlistStatus.WAITING && !hadOffer) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "This waitlist entry is already closed");
+            throw new ApiException(HttpStatus.CONFLICT, "This waitlist entry is already closed");
         }
         entry.changeStatus(WaitlistStatus.LEFT);
         if (hadOffer) {
@@ -181,7 +181,7 @@ public class WaitlistServiceImpl implements WaitlistService {
             }
         }
         if (entry.getStatus() == WaitlistStatus.EXPIRED) {
-            throw new ResponseStatusException(HttpStatus.GONE, "The waitlist entry has expired");
+            throw new ApiException(HttpStatus.GONE, "The waitlist entry has expired");
         }
     }
 
@@ -189,7 +189,7 @@ public class WaitlistServiceImpl implements WaitlistService {
         WaitlistEntry entry = waitlist.findById(entryId)
             .orElseThrow(() -> notFound("Waitlist entry not found"));
         if (!entry.getCustomer().getId().equals(customerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This waitlist entry belongs to another customer");
+            throw new ApiException(HttpStatus.FORBIDDEN, "This waitlist entry belongs to another customer");
         }
         places.findLockedById(entry.getPlace().getId()).orElseThrow(() -> notFound("Place not found"));
         entityManager.refresh(entry);
@@ -200,11 +200,11 @@ public class WaitlistServiceImpl implements WaitlistService {
         return offerings.findById(id).orElseThrow(() -> notFound("Offering not found"));
     }
 
-    private ResponseStatusException notFound(String message) {
-        return new ResponseStatusException(HttpStatus.NOT_FOUND, message);
+    private ApiException notFound(String message) {
+        return new ApiException(HttpStatus.NOT_FOUND, message);
     }
 
-    private ResponseStatusException bad(String message) {
-        return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+    private ApiException bad(String message) {
+        return new ApiException(HttpStatus.BAD_REQUEST, message);
     }
 }
