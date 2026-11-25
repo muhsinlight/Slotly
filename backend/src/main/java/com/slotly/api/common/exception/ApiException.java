@@ -1,28 +1,16 @@
 package com.slotly.api.common.exception;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Objects;
 
-public class ApiException extends ResponseStatusException {
-    private final String code;
-
+public class ApiException extends BaseApiException {
     public ApiException(HttpStatus status, String message) {
         this(status, codeFor(status), message, null);
     }
 
     protected ApiException(HttpStatus status, String code, String message, Throwable cause) {
-        super(Objects.requireNonNull(status), message, cause);
-        this.code = Objects.requireNonNull(code);
-    }
-
-    public HttpStatus getStatus() {
-        return HttpStatus.valueOf(getStatusCode().value());
-    }
-
-    public String getCode() {
-        return code;
+        super(status, code, message, cause);
     }
 
     private static String codeFor(HttpStatus status) {

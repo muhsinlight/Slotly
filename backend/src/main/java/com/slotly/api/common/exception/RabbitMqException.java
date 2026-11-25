@@ -2,7 +2,7 @@ package com.slotly.api.common.exception;
 
 import org.springframework.http.HttpStatus;
 
-public final class RabbitMqException extends ApiException {
+public final class RabbitMqException extends BaseApiException {
     public RabbitMqException(Throwable cause) {
         super(
                 HttpStatus.SERVICE_UNAVAILABLE,

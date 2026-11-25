@@ -89,8 +89,8 @@ public class GlobalExceptionHandler {
         return response(HttpStatus.NOT_ACCEPTABLE, "Requested media type is not acceptable", null, "NOT_ACCEPTABLE");
     }
 
-    @ExceptionHandler(ApiException.class)
-    public ResponseEntity<ApiResponse<Void>> handleApiException(ApiException exception) {
+    @ExceptionHandler(BaseApiException.class)
+    public ResponseEntity<ApiResponse<Void>> handleApiException(BaseApiException exception) {
         String message = exception.getReason() == null
                 ? exception.getStatus().getReasonPhrase()
                 : exception.getReason();

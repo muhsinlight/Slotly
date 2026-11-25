@@ -1,6 +1,7 @@
 package com.slotly.api;
 
 import com.slotly.api.common.exception.ApiException;
+import com.slotly.api.common.exception.BaseApiException;
 import com.slotly.api.common.exception.DatabaseException;
 import com.slotly.api.common.exception.GlobalExceptionHandler;
 import com.slotly.api.common.exception.RabbitMqException;
@@ -54,6 +55,9 @@ class GlobalExceptionHandlerTests {
 
     @Test
     void infrastructureExceptionsUseDistinctApiErrorTypes() {
+        assertEquals(BaseApiException.class, ApiException.class.getSuperclass());
+        assertEquals(BaseApiException.class, DatabaseException.class.getSuperclass());
+        assertEquals(BaseApiException.class, RabbitMqException.class.getSuperclass());
         assertEquals("DATABASE_ERROR", new DatabaseException(new RuntimeException()).getCode());
         assertEquals("RABBITMQ_ERROR", new RabbitMqException(new RuntimeException()).getCode());
     }
