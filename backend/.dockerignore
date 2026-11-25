@@ -1,0 +1,8 @@
+target/
+logs/
+config/
+.env
+.env.*
+!.env.example
+*.log
+*.dump

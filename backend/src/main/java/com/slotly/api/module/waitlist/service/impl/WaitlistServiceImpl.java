@@ -102,15 +102,16 @@ public class WaitlistServiceImpl implements WaitlistService {
 
         User customer = users.findById(customerId).orElseThrow(() -> notFound("Customer not found"));
         WaitlistEntry entry = waitlist.save(new WaitlistEntry(customer, place, offering, startsAt, endsAt));
-        return WaitlistResponse.from(entry);
+        return WaitlistResponse.from(entry, availability.timeZone());
     }
 
     @Transactional(readOnly = true)
     public List<WaitlistResponse> myWaitlist(UUID customerId) {
         Instant now = clock.instant();
+        var timeZone = availability.timeZone();
         return waitlist.findByCustomerIdOrderByCreatedAtDesc(customerId)
             .stream()
-            .map(entry -> WaitlistResponse.at(entry, now))
+            .map(entry -> WaitlistResponse.at(entry, now, timeZone))
             .toList();
     }
 
@@ -132,7 +133,7 @@ public class WaitlistServiceImpl implements WaitlistService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, exception.getReason());
         }
         entry.changeStatus(WaitlistStatus.ACCEPTED);
-        return AppointmentResponse.from(appointment);
+        return AppointmentResponse.from(appointment, availability.timeZone());
     }
 
     @Transactional(noRollbackFor = ResponseStatusException.class)
@@ -144,7 +145,7 @@ public class WaitlistServiceImpl implements WaitlistService {
         }
         entry.changeStatus(WaitlistStatus.DECLINED);
         queue.fillReleasedWindow(entry.getPlace(), entry.getRequestedStartsAt(), entry.getRequestedEndsAt());
-        return WaitlistResponse.from(entry);
+        return WaitlistResponse.from(entry, availability.timeZone());
     }
 
     @Transactional(noRollbackFor = ResponseStatusException.class)

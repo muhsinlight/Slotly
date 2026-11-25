@@ -12,6 +12,7 @@ export type WaitlistEntry = {
   endsAt: string
   status: 'WAITING' | 'OFFERED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'LEFT'
   offerExpiresAt: string | null
+  timeZone?: string
 }
 
 export const entries = ref<WaitlistEntry[]>([])

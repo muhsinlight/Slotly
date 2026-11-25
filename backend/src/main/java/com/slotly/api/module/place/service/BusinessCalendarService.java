@@ -167,11 +167,19 @@ public class BusinessCalendarService {
     }
 
     private Place requireOwner(UUID ownerId, UUID placeId, boolean lock) {
-        Place place = (lock ? places.findLockedById(placeId) : places.findById(placeId))
+        Place place = places.findById(placeId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mekân bulunamadı."));
         if (!place.getOwner().getId().equals(ownerId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bu mekânı yönetemezsiniz.");
         }
-        return place;
+        if (!lock) {
+            return place;
+        }
+        Place lockedPlace = places.findLockedById(placeId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Mekân bulunamadı."));
+        if (!lockedPlace.getOwner().getId().equals(ownerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bu mekânı yönetemezsiniz.");
+        }
+        return lockedPlace;
     }
 }

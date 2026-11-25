@@ -172,6 +172,37 @@ class BookingServiceIntegrationTests {
     }
 
     @Test
+    void rescheduleKeepsAppointmentIdAndOffersReleasedSlotToFirstWaitingCustomer() {
+        Offering service = saveService(30);
+        UUID appointmentId = book(customerOne, service, at(10, 0));
+        UUID waitingId = joinWaitlist(customerTwo, service, at(10, 0)).id();
+
+        var changed = bookingService.reschedule(customerOne.getId(), appointmentId, at(11, 0));
+
+        assertEquals(appointmentId, changed.id());
+        assertEquals(at(11, 0), changed.startsAt());
+        assertEquals(AppointmentStatus.CONFIRMED, appointments.findById(appointmentId).orElseThrow().getStatus());
+        assertEquals(WaitlistStatus.OFFERED, waitlist.findById(waitingId).orElseThrow().getStatus());
+        assertStatus(HttpStatus.CONFLICT, () -> book(customerTwo, service, at(10, 0)));
+    }
+
+    @Test
+    void failedOrUnauthorizedRescheduleLeavesOriginalAppointmentAndQueueIntact() {
+        Offering service = saveService(30);
+        UUID appointmentId = book(customerOne, service, at(10, 0));
+        UUID waitingId = joinWaitlist(customerTwo, service, at(10, 0)).id();
+        book(customerTwo, service, at(11, 0));
+
+        assertStatus(HttpStatus.FORBIDDEN, () ->
+            bookingService.reschedule(customerTwo.getId(), appointmentId, at(12, 0)));
+        assertStatus(HttpStatus.CONFLICT, () ->
+            bookingService.reschedule(customerOne.getId(), appointmentId, at(11, 0)));
+
+        assertEquals(at(10, 0), appointments.findById(appointmentId).orElseThrow().getStartsAt());
+        assertEquals(WaitlistStatus.WAITING, waitlist.findById(waitingId).orElseThrow().getStatus());
+    }
+
+    @Test
     void simultaneousRequestsCannotExceedCapacity() throws Exception {
         Offering service = saveService(30);
         Instant startsAt = at(10, 0);
@@ -208,6 +239,59 @@ class BookingServiceIntegrationTests {
 
         bookingService.cancel(customerOne.getId(), appointmentId);
         assertStatus(HttpStatus.CONFLICT, () -> bookingService.cancel(customerOne.getId(), appointmentId));
+    }
+
+    @Test
+    void cancellationClosesAtExactStartBoundaryAndPreventsNoShowEscape() {
+        Offering service = saveService(30);
+        Instant firstStart = at(10, 0);
+        Instant secondStart = at(11, 0);
+        UUID cancellableJustBeforeStart = book(customerOne, service, firstStart);
+        UUID startedAppointment = book(customerTwo, service, secondStart);
+
+        clock.setInstant(firstStart.minusNanos(1));
+        bookingService.cancel(customerOne.getId(), cancellableJustBeforeStart);
+        assertEquals(AppointmentStatus.CANCELLED,
+            appointments.findById(cancellableJustBeforeStart).orElseThrow().getStatus());
+
+        clock.setInstant(secondStart);
+        assertStatus(HttpStatus.CONFLICT, () -> bookingService.cancel(customerTwo.getId(), startedAppointment));
+        assertEquals(AppointmentStatus.CONFIRMED,
+            appointments.findById(startedAppointment).orElseThrow().getStatus());
+
+        clock.setInstant(secondStart.plus(Duration.ofMinutes(30)));
+        assertStatus(HttpStatus.CONFLICT, () -> bookingService.cancel(customerTwo.getId(), startedAppointment));
+        assertEquals("NO_SHOW",
+            bookingService.recordOutcome(owner.getId(), startedAppointment, AppointmentStatus.NO_SHOW).status());
+    }
+
+    @Test
+    void rescheduleConflictStillCommitsExpiredOfferAdvancementOnTargetSlot() {
+        Offering service = saveService(30);
+        Instant sourceSlot = at(10, 0);
+        Instant targetSlot = at(11, 0);
+        User thirdCustomer = users.save(new User(
+            "customer-reschedule-" + UUID.randomUUID().toString().substring(0, 8),
+            "hash",
+            "Test",
+            "Three",
+            UserRole.CUSTOMER
+        ));
+
+        UUID sourceAppointment = book(customerOne, service, sourceSlot);
+        UUID targetBooked = book(customerTwo, service, targetSlot);
+        UUID firstWaiter = joinWaitlist(customerTwo, service, targetSlot).id();
+        clock.advance(Duration.ofMillis(5));
+        UUID secondWaiter = joinWaitlist(thirdCustomer, service, targetSlot).id();
+        bookingService.cancel(customerTwo.getId(), targetBooked);
+        clock.setInstant(waitlist.findById(firstWaiter).orElseThrow().getOfferExpiresAt());
+
+        assertStatus(HttpStatus.CONFLICT, () ->
+            bookingService.reschedule(customerOne.getId(), sourceAppointment, targetSlot));
+
+        assertEquals(sourceSlot, appointments.findById(sourceAppointment).orElseThrow().getStartsAt());
+        assertEquals(WaitlistStatus.EXPIRED, waitlist.findById(firstWaiter).orElseThrow().getStatus());
+        assertEquals(WaitlistStatus.OFFERED, waitlist.findById(secondWaiter).orElseThrow().getStatus());
     }
 
     @Test

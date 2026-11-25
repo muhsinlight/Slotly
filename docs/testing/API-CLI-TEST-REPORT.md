@@ -56,12 +56,6 @@
 - `GET /actuator/health`: kimlik doğrulamasız `200`.
 - `GET /actuator/info`: kimlik doğrulamasız `401`, geçerli JWT ile `200`. Bu davranış mevcut `SecurityConfig` ile uyumlu: yalnız health ucu açıkça anonim erişime izinli.
 
-## GitHub bağlantısı
-
-- Bu çalışma klasöründe `.git` yok; `git rev-parse` ve `git remote` bu nedenle çalışmıyor. Yerel klasör bir Git çalışma ağacı olarak bağlı değil.
-- Codex’in GitHub entegrasyonu `muhsinlight` hesabı için bağlı ve 26 erişilebilir depo listelendi. Erişilebilir depolar arasında `Slotly` eşleşmesi bulunmadı.
-- Sonuç: GitHub hesabı entegrasyonu var; bu Slotly klasörünün GitHub deposuna yerel remote bağlantısı yok ve entegrasyonda Slotly adlı erişilebilir repo görünmüyor.
-
 ## CLI örneği
 
 ```powershell

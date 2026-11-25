@@ -3,6 +3,8 @@ package com.slotly.api.module.notification.service;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 import com.slotly.api.module.waitlist.service.impl.WaitlistOfferEvent;
@@ -17,17 +19,26 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class NotificationService {
+    private static final DateTimeFormatter LOCAL_DATE_TIME = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
+
     private final JdbcTemplate jdbc;
     private final WaitlistRepository waitlist;
     private final Clock clock;
     private final String frontendUrl;
+    private final ZoneId zone;
 
-    public NotificationService(JdbcTemplate jdbc, WaitlistRepository waitlist, Clock clock,
-        @Value("${slotly.frontend.url:http://localhost:5173}") String frontendUrl) {
+    public NotificationService(
+        JdbcTemplate jdbc,
+        WaitlistRepository waitlist,
+        Clock clock,
+        @Value("${slotly.frontend.url:http://localhost:5173}") String frontendUrl,
+        @Value("${slotly.business.time-zone:Europe/Istanbul}") String zone
+    ) {
         this.jdbc = jdbc;
         this.waitlist = waitlist;
         this.clock = clock;
         this.frontendUrl = frontendUrl.replaceAll("/$", "");
+        this.zone = ZoneId.of(zone);
     }
 
     public record Preferences(boolean offerEmail, boolean reminderEmail, Integer reminderHours) {
@@ -89,8 +100,10 @@ public class NotificationService {
         if (addresses.isEmpty()) {
             return;
         }
+        String startFormatted = entry.getRequestedStartsAt().atZone(zone).format(LOCAL_DATE_TIME);
+        String deadlineFormatted = event.offerExpiresAt().atZone(zone).format(LOCAL_DATE_TIME);
         String body = entry.getPlace().getName() + " · " + entry.getOffering().getName()
-            + "\nSaat: " + entry.getRequestedStartsAt() + "\nSon kabul: " + event.offerExpiresAt()
+            + "\nSaat: " + startFormatted + "\nSon kabul: " + deadlineFormatted
             + "\nTeklifi incele: " + frontendUrl + "/waitlist";
         enqueue(event.customerId(), (String) addresses.getFirst().get("email"), "Slotly: randevu teklifin var",
             body, "offer:" + event.entryId(), "OFFER", event.entryId(), event.offerExpiresAt());

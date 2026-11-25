@@ -1,4 +1,4 @@
-﻿# Geliştirme ve doğrulama
+# Geliştirme ve doğrulama
 
 [← Slotly](../README.md)
 
@@ -14,7 +14,7 @@ Pilot tek backend örneğine göre hazırlanmıştır. Giriş/kurtarma istek sı
 
 Test, derleme ve push çıktıları varsayılan olarak terminalde tutulur. Dosyaya kayıt gerektiğinde proje kökünde log oluşturmayın; Git dışında tutulan `tmp/verification/` dizininde işlem başına sabit ad kullanın: `backend.log`, `build.log`, `browser.log`, `api.log` veya `push.log`. Her çalıştırmada aynı dosyanın üzerine yazın; özellik veya tarih içeren yeni adlarla dosya biriktirmeyin. Bu geçici çıktılar, aşağıda açıklanan backend çalışma loglarından ayrıdır.
 
-Windows'ta GitHub'a göndermeden önce CI kontrollerinin tamamını proje kökünden çalıştırın (Docker Desktop, Java 25 ve Node.js 24 gerekir):
+Windows'ta GitHub'a göndermeden önce CI kontrollerinin tamamını proje kökünden çalıştırmak için isteğe bağlı yerel kontrol betiğini kullanabilirsiniz (yerel PostgreSQL 14+, Java 25 ve Node.js 24 gerekir; Docker Desktop gerekmez):
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check.ps1
@@ -22,7 +22,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check.ps1
 
 Komut backend `verify`, yedek geri yükleme, `pnpm install --frozen-lockfile`, frontend tür kontrolü/derleme ve Chromium tarayıcı testlerini sırayla çalıştırır; ilk hatada durur. Test veritabanları geçicidir. Chromium ilk kullanımda indirilir.
 
-`scripts/check.ps1` yerel bir dosyadır; `.gitignore` kapsamındadır ve GitHub'a gönderilmez. Yeni bir klonda kullanmak için önce dosyayı `scripts/` klasörüne ayrıca kopyalayın. Her `git push` öncesinde otomatik çalışması için her yeni klonda bir kez kurun:
+`scripts/check.ps1` geliştirici ortamına özgü isteğe bağlı bir yerel dosyadır (`.gitignore` kapsamındadır). Kanca kurulduğunda `scripts/check.ps1` mevcutsa tam veritabanı ve tarayıcı testlerini, mevcut değilse taşınabilir frontend tür/derleme kontrolünü çalıştırır:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-hooks.ps1
@@ -32,7 +32,7 @@ Kanca hata olduğunda push'u engeller. Kontrollerin gönderilen commit'i doğrul
 
 Backend testleri:
 
-Backend testleri geçici PostgreSQL 17 konteynerinde çalışır. Ayrı test veritabanı, 5433 portu ve geçici disk kullanılır; geliştirme veritabanına dokunulmaz.
+Yerel `scripts/check.ps1` backend testlerini yerel PostgreSQL (14+) üzerinde ayrı ve geçici `slotly_check_*_test` veritabanlarında çalıştırır; geliştirme veritabanına dokunulmaz. CI ise PostgreSQL 17 servisini kullanır.
 
 Testler `integration-test` profilini ve `TEST_DATABASE_URL`, `TEST_DATABASE_USERNAME`, `TEST_DATABASE_PASSWORD` değişkenlerini kullanır. Normal uygulamanın `DATABASE_URL` değeri test bağlantısını değiştirmez. Doğrudan Maven test komutu da varsayılan olarak 5433 üzerindeki `slotly_test` veritabanını bekler.
 

@@ -74,7 +74,7 @@ async function login(): Promise<void> {
         <span aria-hidden="true">↗</span>
       </button>
     </form>
-    <RouterLink to="/forgot-password">Parolamı unuttum</RouterLink>
+    <RouterLink class="auth-forgot-link" to="/forgot-password">Parolamı unuttum</RouterLink>
 
     <template #switch>
       <span>Slotly’de yeni misin?</span>

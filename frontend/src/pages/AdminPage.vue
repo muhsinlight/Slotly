@@ -1,7 +1,17 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
+import { appointmentStatusLabels } from '../lib/bookings'
 import { request } from '../lib/api'
+
+const waitlistLabels: Record<string, string> = {
+  WAITING: 'Sırada',
+  OFFERED: 'Teklif var',
+  ACCEPTED: 'Kabul edildi',
+  DECLINED: 'Reddedildi',
+  EXPIRED: 'Süresi doldu',
+  LEFT: 'Ayrıldı',
+}
 
 type Appointment = {
   id: string
@@ -30,10 +40,11 @@ type Overview = {
   upcoming: number
   waiting: number
   offers: number
+  timeZone?: string
 }
 
 const overview = ref<Overview>({
-  appointments: [], waitlist: [], appointmentTotal: 0, waitlistTotal: 0, upcoming: 0, waiting: 0, offers: 0,
+  appointments: [], waitlist: [], appointmentTotal: 0, waitlistTotal: 0, upcoming: 0, waiting: 0, offers: 0, timeZone: 'Europe/Istanbul',
 })
 const loading = ref(true)
 const error = ref('')
@@ -55,7 +66,19 @@ const pageCount = computed(() => Math.ceil(total.value / pageSize))
 let controller: AbortController | undefined
 
 function dateTime(value: string): string {
-  return new Date(value).toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' })
+  return new Date(value).toLocaleString('tr-TR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: overview.value.timeZone || 'Europe/Istanbul',
+  })
+}
+
+function appointmentLabel(status: string): string {
+  return appointmentStatusLabels[status as keyof typeof appointmentStatusLabels] || status
+}
+
+function waitlistLabel(status: string): string {
+  return waitlistLabels[status] || status
 }
 
 async function load(): Promise<void> {
@@ -114,11 +137,11 @@ onBeforeUnmount(() => controller?.abort())
       <p v-else-if="error" class="booking-error" role="alert">{{ error }}</p>
       <div v-else class="admin-records">
         <template v-if="tab === 'appointments'">
-          <article v-for="item in overview.appointments" :key="item.id" class="admin-record"><div><b>{{ item.offeringName }}</b><span>{{ item.placeName }} · {{ item.customerUsername }}</span></div><time :datetime="item.startsAt">{{ dateTime(item.startsAt) }}</time><span class="status">{{ item.status }}</span></article>
+          <article v-for="item in overview.appointments" :key="item.id" class="admin-record"><div><b>{{ item.offeringName }}</b><span>{{ item.placeName }} · {{ item.customerUsername }}</span></div><time :datetime="item.startsAt">{{ dateTime(item.startsAt) }}</time><span class="status" :class="item.status.toLowerCase()">{{ appointmentLabel(item.status) }}</span></article>
           <p v-if="!overview.appointments.length" class="booking-empty">Randevu bulunamadı.</p>
         </template>
         <template v-else>
-          <article v-for="item in overview.waitlist" :key="item.id" class="admin-record"><div><b>{{ item.offeringName }}</b><span>{{ item.placeName }} · {{ item.customerUsername }}</span></div><time :datetime="item.requestedStartsAt">{{ dateTime(item.requestedStartsAt) }}</time><span class="status">{{ item.status }}</span></article>
+          <article v-for="item in overview.waitlist" :key="item.id" class="admin-record"><div><b>{{ item.offeringName }}</b><span>{{ item.placeName }} · {{ item.customerUsername }}</span></div><time :datetime="item.requestedStartsAt">{{ dateTime(item.requestedStartsAt) }}</time><span class="status" :class="{ 'waitlist-offer-status': item.status === 'OFFERED' }">{{ waitlistLabel(item.status) }}</span></article>
           <p v-if="!overview.waitlist.length" class="booking-empty">Bekleme kaydı bulunamadı.</p>
         </template>
         <nav v-if="pageCount > 1" class="owner-actions" aria-label="Kayıt sayfaları">

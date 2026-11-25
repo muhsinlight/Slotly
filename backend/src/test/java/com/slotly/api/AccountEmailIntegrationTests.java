@@ -119,7 +119,7 @@ class AccountEmailIntegrationTests {
         UUID other = otherUser();
         service.requestVerification(other, "failed-" + email);
         var original = notifications.deliveries(userId).getFirst();
-        jdbc.update("UPDATE account_tokens SET expires_at = now() WHERE user_id = ?", userId);
+        jdbc.update("UPDATE account_tokens SET expires_at = now() - interval '1 second' WHERE user_id = ?", userId);
         jdbc.update("UPDATE email_outbox SET state = 'FAILED', attempts = 5 WHERE user_id = ?", other);
 
         retention.clearInactiveLinks();

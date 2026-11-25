@@ -47,6 +47,7 @@ pnpm-debug.log*
 
 # Editor and operating system files
 .idea/
+.zed/
 **/.vscode/*
 !**/.vscode/extensions.json
 .DS_Store
@@ -56,12 +57,18 @@ Thumbs.db
 *.iml
 
 # Local tooling and scratch files
+/AGENTS.md
 /.agents/
 /.codex/
 /.aws/
 /.beyin-note-write/
+/.m2/
+/.pnpm-store/
+/.worktrees/
+**/.worktrees/
 /tmp/
 /temp/
+/temp-*.log
 /check.ps1
 /scripts/check.ps1
 *.tmp

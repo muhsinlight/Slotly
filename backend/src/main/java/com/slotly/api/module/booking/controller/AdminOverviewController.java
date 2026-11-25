@@ -5,6 +5,7 @@ import com.slotly.api.module.booking.entity.AppointmentStatus;
 import com.slotly.api.module.booking.repository.AppointmentRepository;
 import com.slotly.api.module.waitlist.repository.WaitlistRepository;
 import com.slotly.api.module.waitlist.entity.WaitlistStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,11 +28,18 @@ public class AdminOverviewController {
     private final AppointmentRepository appointments;
     private final WaitlistRepository waitlist;
     private final Clock clock;
+    private final String timeZone;
 
-    public AdminOverviewController(AppointmentRepository appointments, WaitlistRepository waitlist, Clock clock) {
+    public AdminOverviewController(
+        AppointmentRepository appointments,
+        WaitlistRepository waitlist,
+        Clock clock,
+        @Value("${slotly.business.time-zone:Europe/Istanbul}") String timeZone
+    ) {
         this.appointments = appointments;
         this.waitlist = waitlist;
         this.clock = clock;
+        this.timeZone = timeZone;
     }
 
     @GetMapping("/overview")
@@ -81,7 +89,8 @@ public class AdminOverviewController {
                 queued.getTotalElements(),
                 appointments.countByStatusAndStartsAtGreaterThanEqual(AppointmentStatus.CONFIRMED, now),
                 waitlist.countByStatusAndRequestedStartsAtGreaterThan(WaitlistStatus.WAITING, now),
-                waitlist.countByStatusAndOfferExpiresAtGreaterThan(WaitlistStatus.OFFERED, now)
+                waitlist.countByStatusAndOfferExpiresAtGreaterThan(WaitlistStatus.OFFERED, now),
+                timeZone
             ))
             .response();
     }
@@ -93,7 +102,8 @@ public class AdminOverviewController {
         long waitlistTotal,
         long upcoming,
         long waiting,
-        long offers
+        long offers,
+        String timeZone
     ) {}
 
     public record AppointmentItem(

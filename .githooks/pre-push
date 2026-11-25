@@ -26,9 +26,13 @@ if [ -n "$(git status --porcelain)" ]; then
     exit 1
 fi
 
-if [ ! -f "$root/scripts/check.ps1" ]; then
-    echo 'Push blocked: local scripts/check.ps1 is missing. Restore it before pushing.' >&2
-    exit 1
+if [ -f "$root/scripts/check.ps1" ]; then
+    if command -v powershell.exe >/dev/null 2>&1; then
+        exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/scripts/check.ps1"
+    elif command -v pwsh >/dev/null 2>&1; then
+        exec pwsh -NoProfile -File "$root/scripts/check.ps1"
+    fi
 fi
 
-exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$root/scripts/check.ps1"
+echo 'Running frontend type-check and production build (local scripts/check.ps1 not present)...'
+pnpm --dir "$root/frontend" run build

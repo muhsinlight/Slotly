@@ -46,6 +46,10 @@ public class AvailabilityService {
         this.zone = calendar.timeZone();
     }
 
+    public ZoneId timeZone() {
+        return zone;
+    }
+
     @Transactional(readOnly = true)
     public List<Instant> availability(UUID placeId, UUID offeringId, Instant from, Instant to) {
         Place place = requirePlace(placeId);

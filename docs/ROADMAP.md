@@ -1,6 +1,6 @@
 # Slotly geliştirme planı
 
-Bu dosya mevcut davranışı ve açık ürün kararlarını özetler. Test sonuçlarının kaynağı ilgili commit'in CI çalışmasıdır; farklı oturumların sonuçları güncel durum olarak birleştirilmez. Değişiklik yapan oturum yalnız kendi kapsamını günceller; başka dalda kalan veya doğrulanmamış işi tamamlandı olarak işaretlemez.
+Bu dosya mevcut davranışı ve açık ürün kararlarını özetler. Test sonuçlarının kaynağı ilgili commit'in CI çalışmasıdır.
 
 ## Mevcut uygulama durumu
 
@@ -8,7 +8,7 @@ Bu dosya mevcut davranışı ve açık ürün kararlarını özetler. Test sonu�
 |---|---|---|
 | 1. Müşteri akışı | Arama, mekân detayı, hizmet/tarih/saat, özet/onay, giriş ve kayıttan seçimle dönüş, ayrı randevu sayfası, iptal onayı, 401/oturum temizliği | Temel tamamlanma ölçütleri mobil tarayıcı testinde doğrulandı. |
 | 2. Güvenilirlik | İzole PostgreSQL, enjekte edilen saat, eşzamanlı rezervasyon/kabul, teklif kapasitesi, kapasite azaltımında mevcut randevu ve aktif teklif koruması, rol/sahiplik testleri ve CI | Yeni alan kuralları ilgili testlerle eklenir. |
-| 3. İşletme paneli | Mekân/hizmet/saat yönetimi, günlük/haftalık liste ve özel günler; mevcut randevu ve teklifleri bozan takvim değişiklikleri engellenir | Yeniden planlama bekliyor. Tamamlandı/gelmedi akışı eklendi; doğrulama durumu ilgili çalıştırmada raporlanır. |
+| 3. İşletme paneli | Mekân/hizmet/saat yönetimi, günlük/haftalık liste ve özel günler; mevcut randevu ve teklifleri bozan takvim değişiklikleri engellenir. Müşteri yeniden planlama ve işletme sahibinin tamamlandı/gelmedi akışı eklendi. | Yeni alan kuralları ilgili testlerle eklenir. |
 | 4. Bekleme listesi ve hesap | FIFO, süreli teklif, SSE ve yedek yenileme; e-posta doğrulama, parola kurtarma, bildirim tercihleri, kalıcı gönderim kuyruğu ve 2/24 saat hatırlatma altyapısı | Sağlayıcı adaptörü ve gerçek doğrulama/kurtarma/teklif/hatırlatma e-postası teslimatı bekliyor. |
 | 5. Pilot hazırlık | Flyway V1, temiz kurulum ve mevcut kayıtları koruyan baseline testi, ortam API adresi, prod secret/CORS ayarları, giriş sınırı, sağlık/hata kayıtları, otomatik dump/restore kontrolü, ayrı demo | Gerçek canlı ortam, HTTPS proxy/domain, secret ve yedek saklama ayarları kurulmadı; sınırlı gerçek pilot başlamadı. |
 
@@ -63,7 +63,7 @@ Backend testleri uygulama bağlamına ek olarak kapasite, eşzamanlı istekler, 
 
 **Tamamlanma ölçütü:** Tekrarlanabilir kontroller kapasite aşımını, mükerrer randevuyu ve sıra ihlalini yakalar; CI başarısızsa değişiklik birleştirilmez.
 
-**Karar (Muhsin, 16 Kasım):** Teklif boyunca bir kişilik kapasite ayrılır. Kabul, ret, listeden ayrılma veya süre sonunda kapasite dönüşümü/serbest bırakılması testlerle doğrulanır.
+**Tasarım kararı:** Teklif boyunca bir kişilik kapasite ayrılır. Kabul, ret, listeden ayrılma veya süre sonunda kapasite dönüşümü/serbest bırakılması testlerle doğrulanır.
 
 ## 3. İşletme sahibinin günlük çalışma ekranı
 
@@ -76,7 +76,7 @@ Backend testleri uygulama bağlamına ek olarak kapasite, eşzamanlı istekler, 
 
 **Tamamlanma ölçütü:** İşletme sahibi API aracı açmadan bir mekân kurar, hizmetini ve saatlerini değiştirir, o günkü randevularını takip eder. Kapalı gün için yeni rezervasyon alınamaz.
 
-**Karar (Muhsin, 16 Kasım):** Mevcut randevuyla çakışan değişiklik engellenir. Uygulama aktif teklifleri de korur; özel gün kaldırma ve haftalık saat silme aynı kontrolden geçer.
+**Tasarım kararı:** Mevcut randevuyla çakışan değişiklik engellenir. Uygulama aktif teklifleri de korur; özel gün kaldırma ve haftalık saat silme aynı kontrolden geçer.
 
 ## 4. Bekleme listesini ürünün güçlü tarafı yapma
 
@@ -106,18 +106,18 @@ Backend testleri uygulama bağlamına ek olarak kapasite, eşzamanlı istekler, 
 - Arama büyüdüğünde sunucu tarafı filtreleme ve sayfalama; kategori/konum modeli.
 - İşletme için doluluk, iptal ve bekleme listesinden kazanılan randevu raporu.
 - Takvime ekleme; önce ICS indirme, ihtiyaç doğrulanırsa Google/Outlook senkronizasyonu.
-- Çalışan bazlı takvim, birden fazla şube ve randevu yeniden planlama.
+- Çalışan bazlı takvim ve birden fazla şube.
 - Ödeme/kapora ve no-show politikaları: pilot geri bildirimi ve işletme kuralları netleştikten sonra.
 
 ## Uygulama sırası
 
 1 → 2 → 3 → 4 → 5. Her aşama küçük, bağımsız görevler halinde doğrulanıp commit edilir. Takvim ve bildirim özelliklerinden önce temel müşteri akışı tamamlanır; pilot yayından önce güvenilirlik ve migration işleri bitirilir. Süre tahmini, aşama görevleri ve ürün kararları netleşince yapılır.
 
-Kapasite ayırma ve tarih istisnaları uygulanıp main'e birleşti. E-posta doğrulama ve parola kurtarma da eklendi. Teklif bildirimi ve randevu hatırlatma altyapısı gerçek gönderim kapalı olarak hazırlandı. Yeniden planlamada boşalan saatin FIFO davranışı kullanıcı kararını bekliyor. Tamamlandı/gelmedi işlemleri, Muhsin’in onayıyla yalnız işletme sahibine randevu bitişinden itibaren açılır.
+Kapasite ayırma ve tarih istisnaları uygulanıp main'e birleşti. E-posta doğrulama ve parola kurtarma da eklendi. Teklif bildirimi ve randevu hatırlatma altyapısı gerçek gönderim kapalı olarak hazırlandı. Yeniden planlamada boşalan saat iptal gibi FIFO teklifine açılır; müşteri iptali de yeniden planlama gibi randevu başlangıç anından (`startsAt`) itibaren kapanır. Tamamlandı/gelmedi işlemleri yalnız işletme sahibine randevu bitişinden itibaren açılır.
 
-## Bağımsız görevler ve inceleme düzeni
+## Tamamlanan ve bekleyen başlıca iş paketleri
 
-Her satır ayrı görev dalında uygulanır; görev büyürse bağımsız alt görevlere bölünür. İlgili kontroller geçince Conventional Commit ve push yapılır. GitHub CI başarılı olduktan sonra main'e birleştirilir ve biten dal temizlenir. Her commit sonrası dosya/metot, önce–sonra kod farkı, gerekçe, doğrulama sonucu ve commit bağlantısı kullanıcıya gösterilir.
+Her satır bağımsız iş paketi olarak doğrulanır ve CI kontrolleri geçtikten sonra birleştirilir.
 
 | Sıra | Görev | Tamamlanma ölçütü / bağımlılık |
 |---|---|---|
@@ -127,13 +127,13 @@ Her satır ayrı görev dalında uygulanır; görev büyürse bağımsız alt g�
 | 4 | Şifre sıfırlama | Uygulandı: doğrulanmış adres, 15 dakikalık tek kullanımlık bağlantı, genel yanıt, istek sınırı, eski oturumların iptali ve frontend kurtarma ekranları. Gerçek gönderim bekliyor. |
 | 5 | Teklif bildirimi | Altyapı uygulandı: doğrulanmış adres, tercih ekranı, tekilleştirilmiş outbox, geçerlilik kontrolü, yeniden deneme ve bildirim geçmişi. Sağlayıcı adaptörü ve gerçek dış gönderim bekliyor. |
 | 6 | Randevu hatırlatması | Altyapı uygulandı: frontend tercihleriyle 2/24 saat, zamanlayıcı, iptal/saat değişikliği ve mükerrer kayıt kontrolü. Gerçek gönderim sağlayıcı kararını bekliyor. |
-| 7 | Randevu yeniden planlama | Eski randevu ile yeni kapasite atomik değişir; hata durumunda mevcut randevu korunur. İptal edilen saatin sıra davranışı kararlaştırılır. |
+| 7 | Randevu yeniden planlama | Uygulandı: müşteri yaklaşan onaylı randevunun saatini aynı kimlikle değiştirir; kapasite değişimi atomiktir, hata halinde eski saat korunur ve boşalan saat iptal gibi FIFO teklifine açılır. |
 | 8 | Tamamlandı / gelmedi durumları | Yetkili işletme işlemi, izin verilen durum geçişleri ve müşteri/işletme görünümü doğrulanır. |
 | 9 | Pilot hazırlığı | Hedef ortam, domain ve maliyet seçimi sonrası HTTPS, secret, izleme ve gerçek yedekten dönüş doğrulanır. |
 
 Çalışan takvimi, raporlar, gelişmiş keşif, takvime ekleme ve ödeme pilot geri bildirimine göre sıralanır.
 
-**Sonraki kararlar:** E-posta sağlayıcısı, gerçek dış gönderim yetkisi ve pilot barındırma hedefi henüz seçilmedi. Bu işlemler ayrı karardır.
+**Sonraki kararlar:** E-posta sağlayıcısı ve gerçek dış gönderim sonraya bırakıldı. Pilot barındırma hedefi seçilmedi; mevcut sunum hedefi GitHub kaynak deposudur.
 
 ## Dayanaklar
 

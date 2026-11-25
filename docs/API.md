@@ -1,4 +1,4 @@
-﻿# API referansı
+# API referansı
 
 [← Slotly](../README.md)
 
@@ -29,12 +29,20 @@
 
 Tüm API uçları `/api` önekini kullanır. `{id}` değerleri UUID'dir. `from`, `to` ve `startsAt` alanlarını ISO-8601 biçiminde, saat dilimi/UTC offset belirterek gönderin.
 
-### Kayıt ve giriş
+### Kayıt, giriş ve hesap
 
 | Yöntem ve uç | Erişim | Açıklama |
 |---|---|---|
-| `POST /api/auth/register` | Herkese açık | Kullanıcı kaydeder; başarılı yanıt `201` döner. |
-| `POST /api/auth/login` | Herkese açık | JWT erişim token'ı döndürür. |
+| `POST /api/auth/register` | Herkese açık | Kullanıcı kaydeder; başarılı yanıt `201` döner (`ADMIN` rolü kabul edilmez). |
+| `POST /api/auth/login` | Herkese açık | JWT erişim token'ı döndürür (IP başına hız sınırına tabidir). |
+| `POST /api/auth/verify-email` | Herkese açık | Tek kullanımlık `{ "token": "..." }` ile e-posta adresini doğrular. |
+| `POST /api/auth/forgot-password` | Herkese açık | Doğrulanmış e-posta adresine parola sıfırlama bağlantısı kuyruklar; adres varlığını ifşa etmez. |
+| `POST /api/auth/reset-password` | Herkese açık | `{ "token": "...", "password": "..." }` ile parolayı yeniler ve eski oturumları geçersiz kılar. |
+| `GET /api/account/email` | Oturum açık | Kullanıcının doğrulanmış ve doğrulama bekleyen e-posta durumunu döndürür. |
+| `POST /api/account/email` | Oturum açık | `{ "email": "..." }` için 30 dakikalık doğrulama bağlantısı kuyruklar (60 sn yeniden istek sınırı). |
+| `GET /api/account/notifications` | Oturum açık | E-posta teklif ve hatırlatma tercihlerini döndürür. |
+| `PUT /api/account/notifications` | Oturum açık | Bildirim tercihlerini (`offerEmail`, `reminderEmail`, `reminderHours`: `2` veya `24`) kaydeder; doğrulanmış e-posta gerekir. |
+| `GET /api/account/notifications/deliveries` | Oturum açık | Kullanıcının son 20 e-posta gönderim kaydının konu ve durum özetini döndürür. |
 
 Kayıt gövdesi örneği:
 
@@ -76,6 +84,7 @@ Aşağıdaki uçlar yalnızca ilgili mekânın sahibi olan `OWNER` rolüyle kull
 | `POST /api/owner/places` | Mekân oluşturur: `name`, `address`, `capacity`, `active`; `description` isteğe bağlıdır. |
 | `PUT /api/owner/places/{id}` | Mekânı günceller. |
 | `DELETE /api/owner/places/{id}` | Mekânı devre dışı bırakır. |
+| `GET /api/owner/places/{placeId}/offerings` | Mekânın etkin ve gizli tüm hizmet/ürünlerini listeler. |
 | `POST /api/owner/places/{placeId}/offerings` | Hizmet veya ürün ekler. `SERVICE` için pozitif `durationMinutes` gerekir; `PRODUCT` için süre gönderilmez. |
 | `PUT /api/owner/places/{placeId}/offerings/{id}` | Hizmet veya ürünü günceller. |
 | `DELETE /api/owner/places/{placeId}/offerings/{id}` | Hizmet veya ürünü devre dışı bırakır. |
@@ -93,7 +102,8 @@ Aşağıdaki uçlar yalnızca ilgili mekânın sahibi olan `OWNER` rolüyle kull
 |---|---|---|
 | `POST /api/appointments` | `CUSTOMER` | `placeId`, `offeringId` ve gelecekteki `startsAt` ile randevu oluşturur. Bitiş hizmet süresinden hesaplanır. |
 | `GET /api/appointments/me` | `CUSTOMER` | Müşterinin kendi randevularını listeler. |
-| `DELETE /api/appointments/{id}` | Randevu sahibi veya mekân sahibi | Randevuyu iptal eder; iptal edilmiş randevu kapasiteyi tüketmez. |
+| `PATCH /api/appointments/{id}/reschedule` | Randevu sahibi `CUSTOMER` | `{"startsAt":"2026-12-01T09:00:00Z"}` ile yaklaşan onaylı randevunun saatini aynı kimlikle değiştirir. Yeni saat doluysa eski randevu korunur; boşalan eski saat FIFO bekleme teklifine açılır. |
+| `DELETE /api/appointments/{id}` | Randevu sahibi veya mekân sahibi | Başlangıç anından (`startsAt`) önceki onaylı randevuyu iptal eder; başlamış veya tamamlanmış randevu iptal edilemez (`409`). |
 | `GET /api/waitlist/me` | `CUSTOMER` | Müşterinin bekleme kayıtlarını ve tekliflerini listeler. |
 | `GET /api/waitlist/events` | `CUSTOMER` | `text/event-stream` üzerinden yeni teklifleri iletir. Akış kesilirse istemci yeniden bağlanır ve yedek olarak kayıtları yeniler. |
 | `POST /api/waitlist` | `CUSTOMER` | Kapasitesi dolu bir hizmet ve saat için bekleme kaydı açar. |
