@@ -1,5 +1,6 @@
 package com.slotly.api.module.waitlist.entity;
 
+import com.slotly.api.common.persistence.AuditableEntity;
 import com.slotly.api.module.place.entity.Offering;
 import com.slotly.api.module.place.entity.Place;
 import com.slotly.api.module.user.entity.User;
@@ -20,7 +21,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "waitlist_entries")
-public class WaitlistEntry {
+public class WaitlistEntry extends AuditableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -52,9 +53,6 @@ public class WaitlistEntry {
 
     @Column(name = "offer_expires_at")
     private Instant offerExpiresAt;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt = Instant.now();
 
     protected WaitlistEntry() {
     }
@@ -101,10 +99,6 @@ public class WaitlistEntry {
 
     public Instant getOfferExpiresAt() {
         return offerExpiresAt;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
     }
 
     public void offer(Instant offeredAt, Instant expiresAt) {

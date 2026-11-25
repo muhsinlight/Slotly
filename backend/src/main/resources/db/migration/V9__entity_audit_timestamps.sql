@@ -1,0 +1,64 @@
+ALTER TABLE app_users
+    ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE places
+    ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE offerings
+    ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE business_hours
+    ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE calendar_exceptions
+    ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE appointments
+    ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE waitlist_entries
+    ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+CREATE FUNCTION refresh_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    NEW.updated_at = clock_timestamp();
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER app_users_refresh_updated_at
+    BEFORE UPDATE ON app_users
+    FOR EACH ROW EXECUTE FUNCTION refresh_updated_at();
+
+CREATE TRIGGER places_refresh_updated_at
+    BEFORE UPDATE ON places
+    FOR EACH ROW EXECUTE FUNCTION refresh_updated_at();
+
+CREATE TRIGGER offerings_refresh_updated_at
+    BEFORE UPDATE ON offerings
+    FOR EACH ROW EXECUTE FUNCTION refresh_updated_at();
+
+CREATE TRIGGER business_hours_refresh_updated_at
+    BEFORE UPDATE ON business_hours
+    FOR EACH ROW EXECUTE FUNCTION refresh_updated_at();
+
+CREATE TRIGGER calendar_exceptions_refresh_updated_at
+    BEFORE UPDATE ON calendar_exceptions
+    FOR EACH ROW EXECUTE FUNCTION refresh_updated_at();
+
+CREATE TRIGGER appointments_refresh_updated_at
+    BEFORE UPDATE ON appointments
+    FOR EACH ROW EXECUTE FUNCTION refresh_updated_at();
+
+CREATE TRIGGER waitlist_entries_refresh_updated_at
+    BEFORE UPDATE ON waitlist_entries
+    FOR EACH ROW EXECUTE FUNCTION refresh_updated_at();
