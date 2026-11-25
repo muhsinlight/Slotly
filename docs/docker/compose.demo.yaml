@@ -18,7 +18,7 @@ services:
 
   backend-demo:
     build:
-      context: ../backend
+      context: ../../backend
     profiles: ["app"]
     depends_on:
       postgres-demo:
@@ -42,7 +42,7 @@ services:
 
   frontend-demo:
     build:
-      context: ../frontend
+      context: ../../frontend
       args:
         VITE_API_BASE_URL: http://localhost:8082
     profiles: ["app"]

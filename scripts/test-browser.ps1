@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$composeFile = Join-Path $repositoryRoot 'docker/compose.browser-test.yaml'
+$composeFile = Join-Path $repositoryRoot 'docs/docker/compose.browser-test.yaml'
 
 docker compose -f $composeFile up -d --wait
 if ($LASTEXITCODE -ne 0) {

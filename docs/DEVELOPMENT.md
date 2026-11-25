@@ -34,7 +34,7 @@ Kanca hata olduğunda push'u engeller. Kontrollerin gönderilen commit'i doğrul
 
 Kalıcı JPA entity'leri `common.persistence.BaseEntity` tabanından `createdAt` ve `updatedAt` alanlarını alır. Yeni kayıtta iki alan doldurulur; JPA güncellemelerinde `updatedAt` yenilenir. Flyway `V9__entity_audit_timestamps.sql` mevcut satırlar için başlangıç zamanlarını ekler ve PostgreSQL trigger'ları doğrudan SQL güncellemelerinde de `updated_at` alanını yeniler. Zaman damgaları şu anda API DTO'larında gösterilmez.
 
-Controller ve servis katmanlarında iş kuralı hataları `ApiException` ile ifade edilir. `BaseApiException` ortak HTTP durumu ve hata kodunu taşır; `DatabaseException` ile `RabbitMqException` istemciye teknik ayrıntı sızdırmadan eşlenir. HTTP yanıt sözleşmesi ve hata kodlarının anlamı için [API referansına](API.md) bakın.
+Controller ve servis katmanlarında iş kuralı hataları `ApiException` ile ifade edilir. `BaseApiException` ortak HTTP durumu ve hata kodunu taşır; HTTP isteği sırasında oluşan veritabanı ve RabbitMQ istisnaları teknik ayrıntıları istemciye sızdırmadan eşlenir. RabbitMQ yayıncısı zamanlanmış arka plan işi olduğundan yayın hatası bir HTTP yanıtına dönüşmez. HTTP yanıt sözleşmesi ve hata kodlarının anlamı için [API referansına](API.md) bakın.
 
 Backend testleri:
 

@@ -27,7 +27,7 @@
 
 ### Hata yanıtları
 
-İstek doğrulama hataları `400` ve alan-hata haritası içeren `data` ile döner. İş kuralı hataları uygun HTTP durumunu ve `BAD_REQUEST`, `NOT_FOUND`, `CONFLICT` veya `GONE` gibi bir `code` değerini kullanır. Altyapı hatalarında veritabanı için `500` / `DATABASE_ERROR`, RabbitMQ için `503` / `RABBITMQ_ERROR` döner. Bu yanıtlar teknik ayrıntıları ve bağlantı bilgilerini içermez; ayrıntılar backend loglarına yazılır.
+İstek doğrulama hataları `400` ve alan-hata haritası içeren `data` ile döner. İş kuralı hataları uygun HTTP durumunu ve `BAD_REQUEST`, `NOT_FOUND`, `CONFLICT` veya `GONE` gibi bir `code` değerini kullanır. İstek işlenirken oluşan veritabanı hataları `500` / `DATABASE_ERROR` olarak eşlenir. RabbitMQ istisnası HTTP isteği sırasında oluşursa handler `503` / `RABBITMQ_ERROR` döndürür; mevcut RabbitMQ yayıncısı zamanlanmış bir arka plan işidir, bu işteki hatalar HTTP yanıtı oluşturmaz. Hata yanıtları teknik ayrıntıları ve bağlantı bilgilerini içermez; ayrıntılar backend loglarına yazılır.
 
 ## API uçları
 
@@ -130,7 +130,14 @@ Aşağıdaki uçlar yalnızca ilgili mekânın sahibi olan `OWNER` rolüyle kull
 - `401`: token eksik/geçersiz ya da kullanıcı adı/parola hatalı.
 - `403`: rol veya kaynak sahipliği izni yok.
 - `404`: kaynak bulunamadı.
+- `405`: HTTP yöntemi bu uçta desteklenmiyor.
+- `406`: İstenen yanıt biçimi sunulamıyor.
 - `409`: kullanıcı adı çakışması, kapasite doluluğu veya mevcut durumla çakışan işlem.
+- `410`: Bekleme listesi kaydı veya teklifi artık geçerli değil.
+- `415`: İstek gövdesinin medya türü desteklenmiyor.
+- `429`: Giriş veya e-posta isteği hız sınırına ulaştı.
+- `500`: Beklenmeyen veya istek sırasında oluşan veritabanı hatası.
+- `503`: HTTP isteği sırasında yakalanan mesajlaşma altyapısı istisnası; zamanlanmış RabbitMQ yayın hataları HTTP yanıtı değildir.
 
 ## Randevu sonucu
 
