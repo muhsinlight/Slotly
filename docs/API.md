@@ -22,8 +22,12 @@
 - Korumalı uçlara `Authorization: Bearer <accessToken>` başlığı ekleyin. JWT ömrü 3600 saniyedir.
 - Oturum sunucuda tutulmaz; cookie veya token yenileme ucu yoktur. Web arayüzü token'ı `localStorage` içindeki `slotly-token` anahtarında saklar. Çıkış token'ı tarayıcıdan siler.
 - Pilot sürüm mevcut bir saatlik Bearer oturumunu kullanır. Süresi dolan token veya API 401 yanıtında oturum temizlenir ve uygulama içi dönüş adresiyle tekrar giriş istenir. Cookie ile kimlik doğrulama kullanılmadığından CSRF koruması kapalıdır; cookie/refresh değişikliği bu sözleşme ve CSRF korumasıyla birlikte ele alınmalıdır.
-- JSON yanıtları `status`, `message`, `data` ve `timestamp` alanlarını içerir. `status`, HTTP durum kodudur. `204 No Content` yanıtlarında gövde yoktur.
+- JSON yanıtları `status`, `message`, `code`, `data` ve `timestamp` alanlarını içerir. `status`, HTTP durum kodudur; hata yanıtlarındaki `code` makinece okunabilir hata türünü belirtir. `204 No Content` yanıtlarında gövde yoktur.
 - CORS için `http://localhost:5173` ve `http://127.0.0.1:5173` izinlidir.
+
+### Hata yanıtları
+
+İstek doğrulama hataları `400` ve alan-hata haritası içeren `data` ile döner. İş kuralı hataları uygun HTTP durumunu ve `BAD_REQUEST`, `NOT_FOUND`, `CONFLICT` veya `GONE` gibi bir `code` değerini kullanır. Altyapı hatalarında veritabanı için `500` / `DATABASE_ERROR`, RabbitMQ için `503` / `RABBITMQ_ERROR` döner. Bu yanıtlar teknik ayrıntıları ve bağlantı bilgilerini içermez; ayrıntılar backend loglarına yazılır.
 
 ## API uçları
 

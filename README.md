@@ -90,7 +90,7 @@ Arayüzden işletme sahibi hesabı oluşturun; mekân, çalışma saatleri ve hi
 ```text
 backend/       Tek Spring Boot uygulaması (Dockerfile dahil)
   src/main/java/com/slotly/api/
-    common/    Ortak ayarlar, AOP, güvenlik, yanıt ve hata yönetimi
+    common/    Ortak ayarlar, BaseEntity, AOP, güvenlik, yanıt ve hata yönetimi
     module/    user, auth, place, booking, waitlist ve notification alanları
   src/main/resources/  Ayarlar ve Flyway migration dosyaları
   src/test/    Backend birim, entegrasyon ve Postman testleri
