@@ -78,7 +78,7 @@ Komut Docker'ı başlatmaz; PostgreSQL bağlantı noktasını kontrol edip backe
 2. İşletme kuracaksanız `OWNER`, randevu alacaksanız `CUSTOMER` seçin. Web arayüzü kayıt sonrasında otomatik olarak giriş yapar.
 3. `OWNER` hesabıyla bir mekân oluşturun; kapasitesini, adresini ve çalışma saatlerini girin. Ardından randevu alınabilir bir `SERVICE` ekleyin.
 4. `CUSTOMER` hesabıyla mekânı ve hizmeti seçin, tarih ve uygun saati belirleyerek randevu alın.
-5. Saat doluysa istediğiniz saat için bekleme listesine katılın. Teklif geldiğinde 30 dakika içinde kabul veya reddedin.
+5. Saat doluysa istediğiniz saat için bekleme listesine katılın. Gelen teklifi süresi dolmadan kabul edin veya reddedin. Teklif en fazla 30 dakika geçerlidir ve en geç randevu başlangıcında sona erer.
 
 API'yi doğrudan kullanırken kayıt ve giriş ayrı çağrılardır: `POST /api/auth/register` kullanıcı kaydeder; ardından `POST /api/auth/login` ile `accessToken` alınır.
 

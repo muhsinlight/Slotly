@@ -5,7 +5,7 @@
 
 Randevu ve otomatik bekleme listesi yönetimi. Müşteriler uygun saatleri bulup randevu alır; işletmeler hizmetlerini, çalışma saatlerini ve randevularını tek panelden yönetir.
 
-Bir randevu iptal edildiğinde veya başka saate taşındığında boşalan saat, bekleme listesindeki sıradaki müşteriye uygulama içinde teklif edilir. Teklif 30 dakika geçerlidir; reddedilirse veya süresi dolarsa sıra ilerler.
+Bir randevu iptal edildiğinde veya başka saate taşındığında boşalan saat, bekleme listesindeki sıradaki müşteriye uygulama içinde teklif edilir. Teklif en fazla 30 dakika geçerlidir ve en geç randevu başlangıcında sona erer. Teklif reddedilirse veya süresi dolarsa ayrılan yer serbest kalır.
 
 ## Özellikler
 
@@ -37,21 +37,31 @@ Slotly, GitHub üzerinden incelenen ve yerelde çalıştırılan bir demo projes
 
 ## Hızlı başlangıç
 
-### Seçenek 1 — Docker ile tek komutta çalıştırma
+### Hazır demoyu Docker ile açın
 
-Yerelde JDK 25, Node.js veya PostgreSQL kurmadan tüm yığını konteynerlerde başlatmak için:
-
-```sh
-docker compose --profile app up --build
-```
-
-Hazır örnek işletme, hizmetler ve demo hesaplarıyla (`demo-owner` / `demo-customer`, parola: `SlotlyDemo2026!`) denemek için:
+Depo kökünde çalıştırın:
 
 ```sh
 docker compose -f docs/docker/compose.demo.yaml --profile app up --build
 ```
 
-### Seçenek 2 — Yerel geliştirme ortamı
+Tarayıcıda [yerel demoyu açın](http://localhost:5174). Müşteri hesabı `demo-customer`, işletme sahibi hesabı `demo-owner`. İkisinin de demo parolası `SlotlyDemo2026!`.
+
+**Boşalan bir saatin sıradaki müşteriye nasıl teklif edildiğini deneyin.**
+
+1. `demo-customer` ile **Slotly Demo Stüdyo** içinde **Kısa bakım** hizmetini seçip gelecek bir gün için randevu alın. Stüdyonun kapasitesi bir kişi olduğu için seçtiğiniz saat dolar.
+2. Gizli bir tarayıcı penceresinde ikinci bir müşteri hesabı oluşturup giriş yapın. Aynı mekân, hizmet ve tarih için ilk randevunun saatini girip **Bekleme listesine katıl** düğmesine basın.
+3. İlk pencerede randevuyu iptal edin. İkinci pencerede bekleme listenizi açıp gelen teklifte **Kabul et** düğmesine basın. Yeni randevuyu ikinci hesabın randevuları arasında görebilirsiniz.
+
+### Örnek verisiz Docker ortamı
+
+Kendi işletmenizi oluşturarak başlamak için depo kökünde şu komutu çalıştırıp [yerel arayüzü açın](http://localhost:5173).
+
+```sh
+docker compose --profile app up --build
+```
+
+### Yerel geliştirme ortamı
 
 JDK 25, Node.js 24+, pnpm 12, PostgreSQL 17 ve Git gerekir. Önce yerel PostgreSQL'de `slotly` veritabanını ve erişim kullanıcısını hazırlayın. Farklı bağlantı bilgileri için `DATABASE_URL`, `DATABASE_USERNAME` ve `DATABASE_PASSWORD` ortam değişkenlerini ayarlayın.
 
